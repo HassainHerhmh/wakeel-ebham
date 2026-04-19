@@ -662,6 +662,39 @@ function buildDashboardFromOrders(orders: Order[]): DashboardData {
     { name: 'ملغية', value: statusCount.cancelled || 0 },
   ];
 
+  const productSummary = new Map<string, { name: string; sales: number; orderIds: Set<string> }>();
+
+  sortedOrders.forEach((order) => {
+    order.items.forEach((item) => {
+      const productName = String(item.name || '').trim();
+      if (!productName) {
+        return;
+      }
+
+      const productKey = String(item.product_id || productName).trim();
+      const fallbackSubtotal = Number(item.quantity || 0) * Number(item.price || 0);
+      const subtotal = Number(item.subtotal ?? fallbackSubtotal);
+      const current = productSummary.get(productKey) || {
+        name: productName,
+        sales: 0,
+        orderIds: new Set<string>(),
+      };
+
+      current.sales += Number.isFinite(subtotal) ? subtotal : 0;
+      current.orderIds.add(order.id);
+      productSummary.set(productKey, current);
+    });
+  });
+
+  const topProducts = Array.from(productSummary.values())
+    .map((entry) => ({
+      name: entry.name,
+      sales: Number(entry.sales.toFixed(2)),
+      orderCount: entry.orderIds.size,
+    }))
+    .sort((left, right) => right.sales - left.sales)
+    .slice(0, 5);
+
   return {
     totalSales,
     newOrders: sortedOrders.length,
@@ -669,6 +702,7 @@ function buildDashboardFromOrders(orders: Order[]): DashboardData {
     growthRate,
     weeklySales,
     orderDistribution,
+    topProducts,
   };
 }
 
@@ -685,6 +719,12 @@ function normalizeDashboardData(payload: Record<string, unknown>): DashboardData
       ? payload.order_distribution
       : [];
 
+  const topProductsRaw = Array.isArray(payload.topProducts)
+    ? payload.topProducts
+    : Array.isArray(payload.top_products)
+      ? payload.top_products
+      : [];
+
   return {
     totalSales: toSafeNumber(payload.totalSales ?? payload.total_sales),
     newOrders: toSafeNumber(payload.newOrders ?? payload.new_orders),
@@ -697,6 +737,13 @@ function normalizeDashboardData(payload: Record<string, unknown>): DashboardData
     orderDistribution: orderDistributionRaw.map((item) => ({
       name: String((item as { name?: unknown }).name || ''),
       value: toSafeNumber((item as { value?: unknown }).value),
+    })),
+    topProducts: topProductsRaw.map((item) => ({
+      name: String((item as { name?: unknown }).name || ''),
+      sales: toSafeNumber((item as { sales?: unknown; value?: unknown }).sales ?? (item as { value?: unknown }).value),
+      orderCount: toSafeNumber((item as { orderCount?: unknown; order_count?: unknown; count?: unknown }).orderCount
+        ?? (item as { order_count?: unknown }).order_count
+        ?? (item as { count?: unknown }).count),
     })),
   };
 }

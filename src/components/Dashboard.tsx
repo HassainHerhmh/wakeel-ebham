@@ -50,6 +50,7 @@ export function Dashboard({ onNavigate, restaurantName }: DashboardProps) {
     growthRate: 0,
     weeklySales: [],
     orderDistribution: [],
+    topProducts: [],
   });
   const [isLoading, setIsLoading] = useState(true);
 
@@ -139,6 +140,15 @@ export function Dashboard({ onNavigate, restaurantName }: DashboardProps) {
       .filter((item) => item.value > 0);
   }, [dashboard.orderDistribution]);
 
+  const topProductsChartData = useMemo(
+    () => dashboard.topProducts.map((item) => ({
+      name: item.name,
+      value: item.sales,
+      meta: `${item.orderCount} مرة طلب`,
+    })),
+    [dashboard.topProducts],
+  );
+
   return (
     <div className="space-y-6">
       <div>
@@ -164,6 +174,14 @@ export function Dashboard({ onNavigate, restaurantName }: DashboardProps) {
           title="توزيع الطلبات" 
           type="orders"
           data={normalizedOrderDistribution.length > 0 ? normalizedOrderDistribution : [{ name: 'لا يوجد', value: 1 }]}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:gap-6">
+        <Chart
+          title="أكثر 5 منتجات مبيعًا"
+          type="top-products"
+          data={topProductsChartData.length > 0 ? topProductsChartData : [{ name: 'لا يوجد', value: 0, meta: '0 مرة طلب' }]}
         />
       </div>
     </div>

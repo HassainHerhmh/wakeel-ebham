@@ -1,35 +1,39 @@
 interface ChartData {
   name: string;
   value: number;
+  meta?: string;
 }
 
 interface ChartProps {
   title: string;
-  type: 'sales' | 'orders';
+  type: 'sales' | 'orders' | 'top-products';
   data: ChartData[];
 }
 
 export function Chart({ title, type, data }: ChartProps) {
-  const maxValue = Math.max(...data.map(item => item.value));
+  const maxValue = Math.max(...data.map(item => item.value), 1);
 
   return (
     <div className="bg-white rounded-lg sm:rounded-xl shadow-sm border border-gray-100 p-3 sm:p-4 lg:p-6">
       <h3 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">{title}</h3>
       
-      {type === 'sales' ? (
+      {type === 'sales' || type === 'top-products' ? (
         <div className="space-y-2 sm:space-y-3">
           {data.map((item, index) => (
             <div key={index} className="flex items-center">
-              <div className="w-10 sm:w-12 lg:w-16 text-xs text-gray-600 flex-shrink-0">{item.name}</div>
+              <div className="w-16 sm:w-20 lg:w-28 text-xs text-gray-600 flex-shrink-0 line-clamp-2">{item.name}</div>
               <div className="flex-1 mx-2 sm:mx-3">
                 <div className="bg-gray-200 rounded-full h-1.5 sm:h-2">
                   <div
-                    className="bg-green-500 h-1.5 sm:h-2 rounded-full transition-all duration-300"
+                    className={`${type === 'top-products' ? 'bg-emerald-500' : 'bg-green-500'} h-1.5 sm:h-2 rounded-full transition-all duration-300`}
                     style={{ width: `${(item.value / maxValue) * 100}%` }}
                   ></div>
                 </div>
+                {item.meta && (
+                  <div className="mt-1 text-[11px] sm:text-xs text-gray-500">{item.meta}</div>
+                )}
               </div>
-              <div className="w-10 sm:w-12 lg:w-16 text-xs font-medium text-gray-900 text-left flex-shrink-0">
+              <div className="w-14 sm:w-16 lg:w-20 text-xs font-medium text-gray-900 text-left flex-shrink-0">
                 {item.value.toLocaleString()}
               </div>
             </div>

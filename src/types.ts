@@ -160,6 +160,7 @@ export interface DashboardData {
   growthRate: number;
   weeklySales: Array<{ name: string; value: number }>;
   orderDistribution: Array<{ name: string; value: number }>;
+  topProducts: Array<{ name: string; sales: number; orderCount: number }>;
 }
 
 export type AppOrderNotificationType = 'new_pending' | 'delay_warning';
