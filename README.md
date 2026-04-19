@@ -21,7 +21,7 @@ npm run dev:all
 
 ## الربط مع API خارجي
 
-تقرأ الواجهة عنوان الـ API من المتغير `VITE_API_BASE_URL`.
+تقرأ الواجهة عنوان الـ API من المتغير `VITE_API_BASE_URL` أو `VITE_API_URL`.
 
 مثال ملف `.env`:
 
@@ -37,7 +37,7 @@ VITE_API_BASE_URL=https://your-app.up.railway.app/api
 - Build Command: `npm run build`
 - Output Directory: `dist`
 
-إذا كان المشروع يحتاج الاتصال بسيرفر خارجي، أضف `VITE_API_BASE_URL` داخل Environment Variables في Vercel.
+إذا كان المشروع يحتاج الاتصال بسيرفر خارجي، أضف `VITE_API_BASE_URL` أو `VITE_API_URL` داخل Environment Variables في Vercel.
 
 ## Android
 

@@ -10,7 +10,20 @@ const storeFilePath = path.join(__dirname, 'data', 'store.json');
 const app = express();
 const PORT = Number(process.env.PORT) || 3001;
 
-app.use(cors());
+const corsOptions = {
+  origin: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+};
+
+app.use(cors(corsOptions));
+app.use((req, res, next) => {
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
+
+  return next();
+});
 app.use(express.json({ limit: '10mb' }));
 
 async function readStore() {
