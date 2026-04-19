@@ -66,6 +66,7 @@ export function Users({ isDarkMode = false, currentUser }: UsersProps) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoadingEditPermissions, setIsLoadingEditPermissions] = useState(false);
   const [actionUserId, setActionUserId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -83,6 +84,7 @@ export function Users({ isDarkMode = false, currentUser }: UsersProps) {
     phone: '',
     role: 'employee' as StaffRole,
   });
+  const [editPermissions, setEditPermissions] = useState<PermissionMap>(createEmptyPermissions());
   const effectiveAgentId = getEffectiveAgentId(currentUser);
   const effectiveAgentName = getEffectiveAgentName(currentUser);
 
@@ -128,6 +130,16 @@ export function Users({ isDarkMode = false, currentUser }: UsersProps) {
 
   const handleTogglePermission = (section: string, action: PermissionAction) => {
     setPermissions((currentPermissions) => ({
+      ...currentPermissions,
+      [section]: {
+        ...currentPermissions[section],
+        [action]: !currentPermissions[section]?.[action],
+      },
+    }));
+  };
+
+  const handleToggleEditPermission = (section: string, action: PermissionAction) => {
+    setEditPermissions((currentPermissions) => ({
       ...currentPermissions,
       [section]: {
         ...currentPermissions[section],
@@ -214,7 +226,7 @@ export function Users({ isDarkMode = false, currentUser }: UsersProps) {
     }
   };
 
-  const openEditModal = (user: StaffUser) => {
+  const openEditModal = async (user: StaffUser) => {
     setEditFormData({
       id: user.id,
       name: user.name,
@@ -222,8 +234,27 @@ export function Users({ isDarkMode = false, currentUser }: UsersProps) {
       phone: user.phone || '',
       role: (['employee', 'accountant', 'cashier'].includes(user.role) ? user.role : 'employee') as StaffRole,
     });
+    setEditPermissions(user.permissions || createEmptyPermissions());
     setShowEditModal(true);
     setError('');
+
+    setIsLoadingEditPermissions(true);
+    try {
+      const permissionPayload = await api.getUserPermissions(user.id);
+      const mappedRole = (['employee', 'accountant', 'cashier'].includes(permissionPayload.role)
+        ? permissionPayload.role
+        : 'employee') as StaffRole;
+
+      setEditFormData((current) => ({
+        ...current,
+        role: mappedRole,
+      }));
+      setEditPermissions(permissionPayload.permissions);
+    } catch {
+      // Keep locally available permissions if fetching fails.
+    } finally {
+      setIsLoadingEditPermissions(false);
+    }
   };
 
   const handleUpdateUser = async () => {
@@ -244,6 +275,8 @@ export function Users({ isDarkMode = false, currentUser }: UsersProps) {
         role: editFormData.role,
       });
 
+      await api.updateUserPermissions(editFormData.id, editFormData.role, editPermissions);
+
       setUsers((currentUsers) =>
         currentUsers.map((currentUser) =>
           currentUser.id === editFormData.id
@@ -253,6 +286,7 @@ export function Users({ isDarkMode = false, currentUser }: UsersProps) {
                 username: editFormData.username.trim(),
                 phone: editFormData.phone.trim(),
                 role: editFormData.role,
+                permissions: editPermissions,
               }
             : currentUser,
         ),
@@ -364,7 +398,7 @@ export function Users({ isDarkMode = false, currentUser }: UsersProps) {
                   <div className="mt-4 flex items-center gap-2 border-t border-dashed pt-4">
                     <button
                       type="button"
-                      onClick={() => openEditModal(user)}
+                      onClick={() => void openEditModal(user)}
                       disabled={actionUserId === user.id}
                       className="inline-flex items-center gap-2 rounded-lg bg-blue-100 px-3 py-2 text-xs font-medium text-blue-700 transition-colors hover:bg-blue-200 disabled:cursor-not-allowed disabled:opacity-60"
                     >
@@ -532,59 +566,94 @@ export function Users({ isDarkMode = false, currentUser }: UsersProps) {
 
       {showEditModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3 sm:p-4">
-          <div className={`w-full max-w-xl rounded-2xl ${isDarkMode ? 'bg-gray-800 text-gray-100' : 'bg-white text-gray-900'}`}>
+          <div className={`max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-2xl ${isDarkMode ? 'bg-gray-800 text-gray-100' : 'bg-white text-gray-900'}`}>
             <div className={`flex items-center justify-between border-b px-5 py-4 ${isDarkMode ? 'border-gray-700' : 'border-gray-100'}`}>
               <div>
                 <h3 className="text-lg font-bold">تعديل المستخدم</h3>
-                <p className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>تحديث بيانات المستخدم الفرعي</p>
+                <p className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>تحديث بيانات المستخدم وصلاحياته</p>
               </div>
               <button type="button" onClick={() => setShowEditModal(false)} className="rounded-lg p-2 hover:bg-gray-100/10">
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            <div className="space-y-4 px-5 py-4">
-              <div>
-                <label className="mb-2 block text-sm font-medium">الاسم</label>
-                <input
-                  type="text"
-                  value={editFormData.name}
-                  onChange={(event) => setEditFormData((current) => ({ ...current, name: event.target.value }))}
-                  className={`w-full rounded-lg border px-3 py-2 text-sm focus:border-green-500 focus:outline-none ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-100' : 'border-gray-300 bg-white text-gray-900'}`}
-                />
+            <div className="grid grid-cols-1 gap-6 p-5 lg:grid-cols-[1fr_1.15fr]">
+              <div className="space-y-4">
+                <div>
+                  <label className="mb-2 block text-sm font-medium">الاسم</label>
+                  <input
+                    type="text"
+                    value={editFormData.name}
+                    onChange={(event) => setEditFormData((current) => ({ ...current, name: event.target.value }))}
+                    className={`w-full rounded-lg border px-3 py-2 text-sm focus:border-green-500 focus:outline-none ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-100' : 'border-gray-300 bg-white text-gray-900'}`}
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium">اسم المستخدم</label>
+                  <input
+                    type="text"
+                    value={editFormData.username}
+                    onChange={(event) => setEditFormData((current) => ({ ...current, username: event.target.value }))}
+                    className={`w-full rounded-lg border px-3 py-2 text-sm focus:border-green-500 focus:outline-none ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-100' : 'border-gray-300 bg-white text-gray-900'}`}
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium">رقم الجوال</label>
+                  <input
+                    type="tel"
+                    value={editFormData.phone}
+                    onChange={(event) => setEditFormData((current) => ({ ...current, phone: event.target.value }))}
+                    className={`w-full rounded-lg border px-3 py-2 text-sm focus:border-green-500 focus:outline-none ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-100' : 'border-gray-300 bg-white text-gray-900'}`}
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium">الدور</label>
+                  <select
+                    value={editFormData.role}
+                    onChange={(event) => setEditFormData((current) => ({ ...current, role: event.target.value as StaffRole }))}
+                    className={`w-full rounded-lg border px-3 py-2 text-sm focus:border-green-500 focus:outline-none ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-100' : 'border-gray-300 bg-white text-gray-900'}`}
+                  >
+                    {roleOptions.map((role) => (
+                      <option key={role.value} value={role.value}>{role.label}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-medium">اسم المستخدم</label>
-                <input
-                  type="text"
-                  value={editFormData.username}
-                  onChange={(event) => setEditFormData((current) => ({ ...current, username: event.target.value }))}
-                  className={`w-full rounded-lg border px-3 py-2 text-sm focus:border-green-500 focus:outline-none ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-100' : 'border-gray-300 bg-white text-gray-900'}`}
-                />
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-medium">رقم الجوال</label>
-                <input
-                  type="tel"
-                  value={editFormData.phone}
-                  onChange={(event) => setEditFormData((current) => ({ ...current, phone: event.target.value }))}
-                  className={`w-full rounded-lg border px-3 py-2 text-sm focus:border-green-500 focus:outline-none ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-100' : 'border-gray-300 bg-white text-gray-900'}`}
-                />
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-medium">الدور</label>
-                <select
-                  value={editFormData.role}
-                  onChange={(event) => setEditFormData((current) => ({ ...current, role: event.target.value as StaffRole }))}
-                  className={`w-full rounded-lg border px-3 py-2 text-sm focus:border-green-500 focus:outline-none ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-100' : 'border-gray-300 bg-white text-gray-900'}`}
-                >
-                  {roleOptions.map((role) => (
-                    <option key={role.value} value={role.value}>{role.label}</option>
-                  ))}
-                </select>
+                <h4 className="mb-3 text-sm font-semibold">تعديل الصلاحيات</h4>
+                {isLoadingEditPermissions ? (
+                  <div className={`rounded-xl border p-4 text-sm ${isDarkMode ? 'border-gray-700 bg-gray-700/40 text-gray-300' : 'border-gray-200 bg-gray-50 text-gray-600'}`}>
+                    جاري تحميل الصلاحيات...
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {permissionSections.map((section) => (
+                      <div key={section.key} className={`rounded-xl border p-3 ${isDarkMode ? 'border-gray-700 bg-gray-700/40' : 'border-gray-100 bg-gray-50'}`}>
+                        <div className="mb-3 text-sm font-medium">{section.label}</div>
+                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+                          {permissionActions.map((action) => (
+                            <label
+                              key={action.key}
+                              className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs sm:text-sm ${isDarkMode ? 'bg-gray-800 text-gray-200' : 'bg-white text-gray-700'}`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={Boolean(editPermissions[section.key]?.[action.key])}
+                                onChange={() => handleToggleEditPermission(section.key, action.key)}
+                                className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                              />
+                              {action.label}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
