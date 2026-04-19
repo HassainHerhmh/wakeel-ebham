@@ -52,7 +52,14 @@ function canViewPage(user: AuthUser | null, page: Page): boolean {
     return true;
   }
 
-  return PAGE_PERMISSION_ALIASES[page].some((key) => Boolean(permissions[key]?.view));
+  return PAGE_PERMISSION_ALIASES[page].some((key) => {
+    const section = permissions[key];
+    if (!section) {
+      return false;
+    }
+
+    return Boolean(section.view || section.create || section.edit || section.delete || section.print);
+  });
 }
 
 function getNotificationStorageKey(userId: string) {
@@ -219,6 +226,38 @@ export default function App() {
 
     void syncCurrentRestaurant();
   }, [authState, user]);
+
+  useEffect(() => {
+    if (authState !== 'authenticated' || !user || user.role === 'agent') {
+      return;
+    }
+
+    let mounted = true;
+
+    const hydrateSubUserPermissions = async () => {
+      try {
+        const permissionPayload = await api.getUserPermissions(user.id);
+
+        if (!mounted) {
+          return;
+        }
+
+        persistSessionUser({
+          ...user,
+          role: permissionPayload.role || user.role,
+          permissions: permissionPayload.permissions,
+        });
+      } catch {
+        // Keep existing session payload if permissions endpoint fails.
+      }
+    };
+
+    void hydrateSubUserPermissions();
+
+    return () => {
+      mounted = false;
+    };
+  }, [authState, user?.id]);
 
   const allowedPages = useMemo(
     () => (['dashboard', 'orders', 'products', 'reports', 'users', 'settings'] as Page[])
