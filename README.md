@@ -39,7 +39,7 @@ VITE_API_BASE_URL=https://your-app.up.railway.app/api
 
 إذا كان المشروع يحتاج الاتصال بسيرفر خارجي، أضف `VITE_API_BASE_URL` أو `VITE_API_URL` داخل Environment Variables في Vercel.
 
-على Vercel يتم تمرير طلبات `/api/*` إلى Railway عبر `vercel.json` لتجنب مشاكل CORS في المتصفح.
+على Vercel يتم تمرير طلبات `/api/*` إلى Railway عبر Serverless Function لتجنب مشاكل CORS في المتصفح.
 
 ## Android
 
