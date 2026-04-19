@@ -35,6 +35,10 @@ function normalizeApiBaseUrl(rawUrl?: string): string {
 function resolveApiBaseUrl(): string {
   const configuredUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL;
 
+  if (configuredUrl) {
+    return normalizeApiBaseUrl(configuredUrl);
+  }
+
   if (typeof window !== 'undefined' && window.location.hostname.endsWith('.vercel.app')) {
     return '/api';
   }
