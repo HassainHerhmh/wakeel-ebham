@@ -32,9 +32,17 @@ function normalizeApiBaseUrl(rawUrl?: string): string {
   return normalizedUrl;
 }
 
-const API_BASE_URL = normalizeApiBaseUrl(
-  import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL,
-);
+function resolveApiBaseUrl(): string {
+  const configuredUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL;
+
+  if (typeof window !== 'undefined' && window.location.hostname.endsWith('.vercel.app')) {
+    return '/api';
+  }
+
+  return normalizeApiBaseUrl(configuredUrl);
+}
+
+const API_BASE_URL = resolveApiBaseUrl();
 export const SESSION_STORAGE_KEY = 'merchant-app-session';
 
 interface AgentLoginResponse {
