@@ -1,13 +1,8 @@
-# نظام التاجر
+# وكيل ابهام
 
-هذا المشروع أصبح الآن مهيأ كالتالي:
+تطبيق ويب مبني بـ React وVite لإدارة الطلبات والمنتجات والتقارير، مع واجهة عربية واتجاه RTL.
 
-- واجهة React/Vite.
-- سيرفر محلي Node/Express لحفظ البيانات وربط الواجهة.
-- يدعم الربط مع سيرفر خارجي أيضاً عبر `VITE_API_BASE_URL`.
-- دعم Android عبر Capacitor.
-
-## التشغيل المحلي عبر CMD أو PowerShell
+## التشغيل المحلي
 
 ```powershell
 npm install
@@ -24,32 +19,30 @@ npm run dev:all
 - رقم الهاتف: 770067118
 - كلمة المرور: 770067118
 
-واجهة تسجيل الدخول الآن ترسل الطلب إلى:
+## الربط مع API خارجي
 
-- `/api/agents/login` في السيرفر المحلي
-- أو أي Base URL تحدده في `VITE_API_BASE_URL`
+تقرأ الواجهة عنوان الـ API من المتغير `VITE_API_BASE_URL`.
 
-إذا كان السيرفر الخارجي مستضافاً على Railway أو أي استضافة مشابهة، استخدم ملف `.env` بهذا الشكل:
+مثال ملف `.env`:
 
 ```env
 VITE_API_BASE_URL=https://your-app.up.railway.app/api
 ```
 
-مهم: قيمة المتغير يجب أن تنتهي بـ `/api` لأن جميع الطلبات في الواجهة مبنية على هذا الأساس.
+## النشر على Vercel
 
-## بناء نسخة Android
+إعدادات النشر المناسبة:
+
+- Framework Preset: Vite
+- Build Command: `npm run build`
+- Output Directory: `dist`
+
+إذا كان المشروع يحتاج الاتصال بسيرفر خارجي، أضف `VITE_API_BASE_URL` داخل Environment Variables في Vercel.
+
+## Android
 
 ```powershell
 npm run build
-npm run android:add
 npm run android:sync
 npm run android:open
 ```
-
-إذا كنت ستجرب على محاكي Android، ضع ملف `.env` في جذر المشروع بالمحتوى التالي قبل البناء:
-
-```env
-VITE_API_BASE_URL=http://10.0.2.2:3001/api
-```
-
-إذا كان الاختبار على جهاز فعلي، استبدل `10.0.2.2` بعنوان IP الخاص بجهازك على الشبكة المحلية.

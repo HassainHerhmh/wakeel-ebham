@@ -73,7 +73,7 @@ export function Header({ onMenuClick, onLogout, user, restaurant, onRestaurantUp
           >
             <Menu className="h-5 w-5 sm:h-6 sm:w-6" />
           </button>
-          <h1 className="text-sm sm:text-lg lg:text-xl font-bold text-gray-900 truncate">نظام التاجر - إبهام للتوصيل</h1>
+          <h1 className="text-sm sm:text-lg lg:text-xl font-bold text-gray-900 truncate">وكيل ابهام</h1>
         </div>
         <div className="flex items-center space-x-1 sm:space-x-2 lg:space-x-4 space-x-reverse shrink-0">
           <button className="relative p-1.5 sm:p-2 text-gray-600 hover:text-gray-900 hover:bg-green-100 rounded-lg transition-colors">

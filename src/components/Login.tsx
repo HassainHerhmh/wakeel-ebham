@@ -34,8 +34,8 @@ export function Login({ onLogin }: LoginProps) {
           <div className="inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-r from-green-500 to-green-600 rounded-xl sm:rounded-2xl shadow-lg mb-3 sm:mb-4">
             <ChefHat className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
           </div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">نظام التاجر </h1>
-          <p className="text-sm sm:text-base text-gray-600">شركة إبهام للتوصيل</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">وكيل ابهام</h1>
+          <p className="text-sm sm:text-base text-gray-600">إدارة الطلبات والمنتجات والتقارير</p>
         </div>
 
         {/* نموذج تسجيل الدخول */}
@@ -129,7 +129,7 @@ export function Login({ onLogin }: LoginProps) {
         {/* تذييل */}
         <div className="text-center mt-6 sm:mt-8">
           <p className="text-gray-500 text-xs sm:text-sm">
-            © 2024 إبهام للتوصيل. جميع الحقوق محفوظة.
+            © 2026 وكيل ابهام. جميع الحقوق محفوظة.
           </p>
         </div>
       </div>

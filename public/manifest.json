@@ -1,7 +1,7 @@
 {
-  "name": "مطعم الديار",
-  "short_name": "مطعم الديار",
-  "description": "شركة إبهام للتوصيل - مطعم الديار",
+  "name": "وكيل ابهام",
+  "short_name": "وكيل ابهام",
+  "description": "تطبيق وكيل ابهام لإدارة الطلبات والمنتجات والتقارير",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
