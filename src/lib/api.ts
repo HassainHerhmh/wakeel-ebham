@@ -1016,6 +1016,7 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({
         name: payload.name,
+        username: payload.username,
         email: payload.username,
         phone: payload.phone,
         password: payload.password,
