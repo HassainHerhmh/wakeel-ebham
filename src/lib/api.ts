@@ -1046,8 +1046,27 @@ export const api = {
     });
   },
 
-  async disableUser(id: string) {
-    await request<{ success?: boolean; message?: string }>(`/users/${id}/disable`, {
+  async updateUser(payload: {
+    id: string;
+    name: string;
+    username: string;
+    phone: string;
+    role: StaffRole;
+  }) {
+    await request<{ success?: boolean; message?: string }>(`/users/${payload.id}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        name: payload.name,
+        username: payload.username,
+        email: payload.username,
+        phone: payload.phone,
+        role: payload.role,
+      }),
+    });
+  },
+
+  async toggleUserStatus(id: string) {
+    return request<{ success?: boolean; message?: string; status?: string }>(`/users/${id}/disable`, {
       method: 'PUT',
     });
   },

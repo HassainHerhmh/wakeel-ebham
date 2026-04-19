@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, ShieldCheck, Trash2, UserRound, UserX, X } from 'lucide-react';
+import { Pencil, Plus, ShieldCheck, Trash2, UserRound, UserX, X } from 'lucide-react';
 import { api } from '../lib/api';
 import { filterUsersByAgent, getEffectiveAgentId, getEffectiveAgentName } from '../lib/agentUserLinks';
 import type { AuthUser, PermissionAction, PermissionMap, StaffRole, StaffUser } from '../types';
@@ -64,6 +64,7 @@ export function Users({ isDarkMode = false, currentUser }: UsersProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [actionUserId, setActionUserId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
@@ -75,6 +76,13 @@ export function Users({ isDarkMode = false, currentUser }: UsersProps) {
     role: 'employee' as StaffRole,
   });
   const [permissions, setPermissions] = useState<PermissionMap>(createEmptyPermissions());
+  const [editFormData, setEditFormData] = useState({
+    id: '',
+    name: '',
+    username: '',
+    phone: '',
+    role: 'employee' as StaffRole,
+  });
   const effectiveAgentId = getEffectiveAgentId(currentUser);
   const effectiveAgentName = getEffectiveAgentName(currentUser);
 
@@ -171,13 +179,13 @@ export function Users({ isDarkMode = false, currentUser }: UsersProps) {
     }
   };
 
-  const handleDisableUser = async (user: StaffUser) => {
-    if (user.status === 'disabled') {
-      setError('المستخدم معطل بالفعل');
-      return;
-    }
-
-    const confirmed = window.confirm(`تأكيد تعطيل المستخدم ${user.name}؟`);
+  const handleToggleUserStatus = async (user: StaffUser) => {
+    const isDisabled = user.status === 'disabled';
+    const confirmed = window.confirm(
+      isDisabled
+        ? `تأكيد تفعيل المستخدم ${user.name}؟`
+        : `تأكيد تعطيل المستخدم ${user.name}؟`,
+    );
     if (!confirmed) {
       return;
     }
@@ -186,21 +194,75 @@ export function Users({ isDarkMode = false, currentUser }: UsersProps) {
     setError('');
 
     try {
-      await api.disableUser(user.id);
+      const response = await api.toggleUserStatus(user.id);
+      const nextStatus = response.status === 'disabled' ? 'disabled' : 'active';
+
       setUsers((currentUsers) =>
         currentUsers.map((currentUser) =>
           currentUser.id === user.id
             ? {
                 ...currentUser,
-                status: 'disabled',
+                status: nextStatus,
               }
             : currentUser,
         ),
       );
     } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : 'تعذر تعطيل المستخدم');
+      setError(actionError instanceof Error ? actionError.message : 'تعذر تغيير حالة المستخدم');
     } finally {
       setActionUserId(null);
+    }
+  };
+
+  const openEditModal = (user: StaffUser) => {
+    setEditFormData({
+      id: user.id,
+      name: user.name,
+      username: user.username || '',
+      phone: user.phone || '',
+      role: (['employee', 'accountant', 'cashier'].includes(user.role) ? user.role : 'employee') as StaffRole,
+    });
+    setShowEditModal(true);
+    setError('');
+  };
+
+  const handleUpdateUser = async () => {
+    if (!editFormData.name.trim() || !editFormData.username.trim() || !editFormData.phone.trim()) {
+      setError('أكمل جميع حقول التعديل المطلوبة');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError('');
+
+    try {
+      await api.updateUser({
+        id: editFormData.id,
+        name: editFormData.name.trim(),
+        username: editFormData.username.trim(),
+        phone: editFormData.phone.trim(),
+        role: editFormData.role,
+      });
+
+      setUsers((currentUsers) =>
+        currentUsers.map((currentUser) =>
+          currentUser.id === editFormData.id
+            ? {
+                ...currentUser,
+                name: editFormData.name.trim(),
+                username: editFormData.username.trim(),
+                phone: editFormData.phone.trim(),
+                role: editFormData.role,
+              }
+            : currentUser,
+        ),
+      );
+
+      setShowEditModal(false);
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : 'تعذر تعديل المستخدم');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -302,12 +364,22 @@ export function Users({ isDarkMode = false, currentUser }: UsersProps) {
                   <div className="mt-4 flex items-center gap-2 border-t border-dashed pt-4">
                     <button
                       type="button"
-                      onClick={() => void handleDisableUser(user)}
-                      disabled={actionUserId === user.id || user.status === 'disabled'}
-                      className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${user.status === 'disabled' ? 'bg-gray-200 text-gray-600' : 'bg-amber-100 text-amber-800 hover:bg-amber-200'}`}
+                      onClick={() => openEditModal(user)}
+                      disabled={actionUserId === user.id}
+                      className="inline-flex items-center gap-2 rounded-lg bg-blue-100 px-3 py-2 text-xs font-medium text-blue-700 transition-colors hover:bg-blue-200 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <Pencil className="h-4 w-4" />
+                      تعديل
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => void handleToggleUserStatus(user)}
+                      disabled={actionUserId === user.id}
+                      className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${user.status === 'disabled' ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-amber-100 text-amber-800 hover:bg-amber-200'}`}
                     >
                       <UserX className="h-4 w-4" />
-                      {actionUserId === user.id ? 'جاري التنفيذ...' : user.status === 'disabled' ? 'معطل' : 'تعطيل'}
+                      {actionUserId === user.id ? 'جاري التنفيذ...' : user.status === 'disabled' ? 'تفعيل' : 'تعطيل'}
                     </button>
 
                     <button
@@ -452,6 +524,85 @@ export function Users({ isDarkMode = false, currentUser }: UsersProps) {
                 className="rounded-lg bg-green-500 px-4 py-2 text-sm font-medium text-white hover:bg-green-600 disabled:opacity-60"
               >
                 {isSubmitting ? 'جاري الحفظ...' : 'حفظ المستخدم'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showEditModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3 sm:p-4">
+          <div className={`w-full max-w-xl rounded-2xl ${isDarkMode ? 'bg-gray-800 text-gray-100' : 'bg-white text-gray-900'}`}>
+            <div className={`flex items-center justify-between border-b px-5 py-4 ${isDarkMode ? 'border-gray-700' : 'border-gray-100'}`}>
+              <div>
+                <h3 className="text-lg font-bold">تعديل المستخدم</h3>
+                <p className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>تحديث بيانات المستخدم الفرعي</p>
+              </div>
+              <button type="button" onClick={() => setShowEditModal(false)} className="rounded-lg p-2 hover:bg-gray-100/10">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 px-5 py-4">
+              <div>
+                <label className="mb-2 block text-sm font-medium">الاسم</label>
+                <input
+                  type="text"
+                  value={editFormData.name}
+                  onChange={(event) => setEditFormData((current) => ({ ...current, name: event.target.value }))}
+                  className={`w-full rounded-lg border px-3 py-2 text-sm focus:border-green-500 focus:outline-none ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-100' : 'border-gray-300 bg-white text-gray-900'}`}
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium">اسم المستخدم</label>
+                <input
+                  type="text"
+                  value={editFormData.username}
+                  onChange={(event) => setEditFormData((current) => ({ ...current, username: event.target.value }))}
+                  className={`w-full rounded-lg border px-3 py-2 text-sm focus:border-green-500 focus:outline-none ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-100' : 'border-gray-300 bg-white text-gray-900'}`}
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium">رقم الجوال</label>
+                <input
+                  type="tel"
+                  value={editFormData.phone}
+                  onChange={(event) => setEditFormData((current) => ({ ...current, phone: event.target.value }))}
+                  className={`w-full rounded-lg border px-3 py-2 text-sm focus:border-green-500 focus:outline-none ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-100' : 'border-gray-300 bg-white text-gray-900'}`}
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium">الدور</label>
+                <select
+                  value={editFormData.role}
+                  onChange={(event) => setEditFormData((current) => ({ ...current, role: event.target.value as StaffRole }))}
+                  className={`w-full rounded-lg border px-3 py-2 text-sm focus:border-green-500 focus:outline-none ${isDarkMode ? 'border-gray-600 bg-gray-700 text-gray-100' : 'border-gray-300 bg-white text-gray-900'}`}
+                >
+                  {roleOptions.map((role) => (
+                    <option key={role.value} value={role.value}>{role.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className={`flex flex-col-reverse gap-3 border-t px-5 py-4 sm:flex-row sm:justify-end ${isDarkMode ? 'border-gray-700' : 'border-gray-100'}`}>
+              <button
+                type="button"
+                onClick={() => setShowEditModal(false)}
+                className={`rounded-lg px-4 py-2 text-sm font-medium ${isDarkMode ? 'bg-gray-700 text-gray-100 hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+              >
+                إلغاء
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleUpdateUser()}
+                disabled={isSubmitting}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+              >
+                {isSubmitting ? 'جاري الحفظ...' : 'حفظ التعديل'}
               </button>
             </div>
           </div>
