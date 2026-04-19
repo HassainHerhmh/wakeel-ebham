@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Login } from './components/Login';
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
@@ -24,6 +24,36 @@ const ORDER_NOTIFICATIONS_LIMIT = 120;
 const DELAY_THRESHOLD_MINUTES = 10;
 const NEW_PENDING_STATUSES = new Set(['confirmed', 'processing', 'preparing']);
 const DELAY_WATCH_STATUSES = new Set(['pending', 'scheduled', 'confirmed', 'processing', 'preparing', 'ready']);
+
+const PAGE_PERMISSION_ALIASES: Record<Page, string[]> = {
+  dashboard: ['dashboard'],
+  orders: ['orders', 'manual_orders', 'wassel_orders'],
+  products: ['products', 'restaurants'],
+  reports: ['reports', 'commission_reports'],
+  users: ['users'],
+  settings: ['settings'],
+};
+
+function canViewPage(user: AuthUser | null, page: Page): boolean {
+  if (!user) {
+    return false;
+  }
+
+  if (user.role === 'agent' || user.is_admin_branch) {
+    return true;
+  }
+
+  const permissions = user.permissions;
+  if (!permissions) {
+    return page === 'settings';
+  }
+
+  if (page === 'settings') {
+    return true;
+  }
+
+  return PAGE_PERMISSION_ALIASES[page].some((key) => Boolean(permissions[key]?.view));
+}
 
 function getNotificationStorageKey(userId: string) {
   return `order-notifications-${userId}`;
@@ -189,6 +219,24 @@ export default function App() {
 
     void syncCurrentRestaurant();
   }, [authState, user]);
+
+  const allowedPages = useMemo(
+    () => (['dashboard', 'orders', 'products', 'reports', 'users', 'settings'] as Page[])
+      .filter((page) => canViewPage(user, page)),
+    [user],
+  );
+
+  useEffect(() => {
+    if (authState !== 'authenticated') {
+      return;
+    }
+
+    if (allowedPages.includes(currentPage)) {
+      return;
+    }
+
+    setCurrentPage(allowedPages[0] || 'settings');
+  }, [authState, currentPage, allowedPages]);
 
   useEffect(() => {
     if (authState !== 'authenticated') {
@@ -374,6 +422,14 @@ export default function App() {
   };
 
   const renderCurrentPage = () => {
+    if (!canViewPage(user, currentPage)) {
+      return (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-amber-800">
+          لا تملك صلاحية الوصول لهذه الصفحة
+        </div>
+      );
+    }
+
     switch (currentPage) {
       case 'dashboard':
         return <Dashboard onNavigate={setCurrentPage} restaurantName={currentRestaurant?.name || 'المطعم'} />;
@@ -438,6 +494,7 @@ export default function App() {
       <Sidebar 
         currentPage={currentPage} 
         setCurrentPage={setCurrentPage}
+        allowedPages={allowedPages}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         isCollapsed={sidebarCollapsed}

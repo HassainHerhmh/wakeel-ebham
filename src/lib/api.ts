@@ -77,6 +77,7 @@ interface StaffLoginResponse {
     role?: string;
     branch_id?: string | number | null;
     branch_name?: string | null;
+    permissions?: unknown;
     agent_id?: string | number | null;
     agent_name?: string | null;
     is_admin_branch?: boolean;
@@ -732,6 +733,18 @@ export const api = {
         throw new Error(response.message || (agentError instanceof Error ? agentError.message : 'تعذر تسجيل الدخول'));
       }
 
+      let resolvedPermissions = normalizePermissions(response.user.permissions);
+
+      // Backward compatibility: if login payload misses permissions, fetch it explicitly.
+      if (!response.user.permissions && response.user.id !== undefined && response.user.id !== null) {
+        try {
+          const permissionsResponse = await request<{ permissions?: unknown }>(`/users/${response.user.id}/permissions`);
+          resolvedPermissions = normalizePermissions(permissionsResponse.permissions);
+        } catch {
+          resolvedPermissions = normalizePermissions(undefined);
+        }
+      }
+
       return {
         token: response.user.token,
         user: attachAgentLinkToUser({
@@ -749,6 +762,7 @@ export const api = {
             : null,
           linked_agent_name: response.user.agent_name ?? null,
           is_admin_branch: Boolean(response.user.is_admin_branch),
+          permissions: resolvedPermissions,
           account_id: null,
           image_url: null,
         }),

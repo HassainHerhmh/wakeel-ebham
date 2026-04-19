@@ -145,6 +145,7 @@ export interface AuthUser {
   image_url?: string | null;
   linked_agent_id?: string | null;
   linked_agent_name?: string | null;
+  permissions?: PermissionMap;
 }
 
 export interface AuthSession {

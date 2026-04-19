@@ -4,6 +4,7 @@ import type { Page } from '../types';
 interface SidebarProps {
   currentPage: Page;
   setCurrentPage: (page: Page) => void;
+  allowedPages?: Page[];
   isOpen: boolean;
   onClose: () => void;
   isCollapsed: boolean;
@@ -15,6 +16,7 @@ interface SidebarProps {
 export function Sidebar({
   currentPage,
   setCurrentPage,
+  allowedPages,
   isOpen,
   onClose,
   isCollapsed,
@@ -30,6 +32,10 @@ export function Sidebar({
     { id: 'users', label: 'المستخدمين', icon: UsersIcon },
     { id: 'settings', label: 'الإعدادات', icon: SettingsIcon },
   ];
+
+  const visibleMenuItems = Array.isArray(allowedPages) && allowedPages.length > 0
+    ? menuItems.filter((item) => allowedPages.includes(item.id as Page))
+    : menuItems;
 
   const handleItemClick = (id: Page) => {
     setCurrentPage(id);
@@ -107,7 +113,7 @@ export function Sidebar({
         </div>
 
       <nav className="mt-4 sm:mt-6">
-        {menuItems.map((item) => {
+        {visibleMenuItems.map((item) => {
           const Icon = item.icon;
           return (
             <button

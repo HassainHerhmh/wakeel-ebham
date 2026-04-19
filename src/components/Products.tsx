@@ -180,7 +180,8 @@ export function Products({ restaurantId }: ProductsProps) {
     const searchValue = searchTerm.toLowerCase();
     const matchesSearch = product.name.toLowerCase().includes(searchValue) || product.notes.toLowerCase().includes(searchValue);
     const matchesCategory = categoryFilter === 'all' || product.category_ids.includes(categoryFilter);
-    return matchesSearch && matchesCategory;
+    const matchesRestaurant = !resolvedRestaurantId || String(product.restaurant_id || '') === String(resolvedRestaurantId);
+    return matchesSearch && matchesCategory && matchesRestaurant;
   });
 
   const childProductOptions = products.filter((product) => {
