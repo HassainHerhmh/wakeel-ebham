@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
-import { Plus, Edit, Trash2, X, Save, Package, ArrowRight, LogOut, Moon, Sun } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Plus, Edit, Trash2, X, Save, Package, ArrowRight, LogOut, Moon, Sun, BellRing, Play } from 'lucide-react';
 import { api } from '../lib/api';
+import { playOrderAlertTone, type OrderAlertTone } from '../lib/orderAlert';
 import type { NamedItem } from '../types';
 
 interface SettingsProps {
@@ -9,9 +10,23 @@ interface SettingsProps {
   restaurantId?: string | null;
   isDarkMode?: boolean;
   onToggleDarkMode?: () => void;
+  orderAlertTone?: OrderAlertTone;
+  onOrderAlertToneChange?: (tone: OrderAlertTone) => void;
+  orderAlertEnabled?: boolean;
+  onOrderAlertEnabledChange?: (enabled: boolean) => void;
 }
 
-export default function StoreSettings({ onBack, onLogout, restaurantId, isDarkMode = false, onToggleDarkMode }: SettingsProps) {
+export default function StoreSettings({
+  onBack,
+  onLogout,
+  restaurantId,
+  isDarkMode = false,
+  onToggleDarkMode,
+  orderAlertTone = 'classic',
+  onOrderAlertToneChange,
+  orderAlertEnabled = true,
+  onOrderAlertEnabledChange,
+}: SettingsProps) {
   const [units, setUnits] = useState<NamedItem[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingItem, setEditingItem] = useState<NamedItem | null>(null);
@@ -129,7 +144,7 @@ export default function StoreSettings({ onBack, onLogout, restaurantId, isDarkMo
         </button>
         <div className="text-right">
           <h2 className={`text-xl sm:text-2xl font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>إعدادات المطعم</h2>
-          <p className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>إدارة الوحدات مباشرة من السيرفر</p>
+          <p className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>إدارة الوحدات مباشرة</p>
         </div>
       </div>
 
@@ -234,6 +249,71 @@ export default function StoreSettings({ onBack, onLogout, restaurantId, isDarkMo
             >
               {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
               {isDarkMode ? 'إيقاف الوضع الليلي' : 'تفعيل الوضع الليلي'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* قسم نغمة الطلبات */}
+      {(onOrderAlertToneChange || onOrderAlertEnabledChange) && (
+        <div className={`rounded-xl shadow-sm border p-4 sm:p-6 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3 className={`text-base sm:text-lg font-semibold mb-2 flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                <BellRing className="h-5 w-5" />
+                تنبيه الطلبات المعلقة
+              </h3>
+              <p className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                اختر نغمة تنبيه عند وصول طلب جديد بحالة معلقة
+              </p>
+            </div>
+            {onOrderAlertEnabledChange && (
+              <button
+                onClick={() => onOrderAlertEnabledChange(!orderAlertEnabled)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  orderAlertEnabled
+                    ? 'bg-green-500 text-white hover:bg-green-600'
+                    : isDarkMode
+                      ? 'bg-gray-700 text-gray-100 hover:bg-gray-600'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {orderAlertEnabled ? 'التنبيه مفعل' : 'التنبيه متوقف'}
+              </button>
+            )}
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-center">
+            <select
+              value={orderAlertTone}
+              onChange={(event) => onOrderAlertToneChange?.(event.target.value as OrderAlertTone)}
+              disabled={!orderAlertEnabled}
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm ${
+                isDarkMode
+                  ? 'bg-gray-700 border-gray-600 text-gray-100 disabled:text-gray-400'
+                  : 'bg-white border-gray-300 text-gray-900 disabled:text-gray-400'
+              }`}
+            >
+              <option value="classic">النغمة الكلاسيكية</option>
+              <option value="bell">نغمة الجرس</option>
+              <option value="soft">نغمة هادئة</option>
+            </select>
+
+            <button
+              onClick={() => void playOrderAlertTone(orderAlertTone)}
+              disabled={!orderAlertEnabled}
+              className={`inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                orderAlertEnabled
+                  ? isDarkMode
+                    ? 'bg-gray-700 text-gray-100 hover:bg-gray-600'
+                    : 'bg-green-100 text-green-700 hover:bg-green-200'
+                  : isDarkMode
+                    ? 'bg-gray-700 text-gray-400'
+                    : 'bg-gray-100 text-gray-400'
+              }`}
+            >
+              <Play className="h-4 w-4" />
+              تجربة النغمة
             </button>
           </div>
         </div>

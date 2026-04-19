@@ -9,10 +9,14 @@ import type {
   Order,
   OrderItem,
   OrderRestaurant,
+  PermissionMap,
   Product,
   RestaurantItem,
   SettingsData,
+  StaffRole,
+  StaffUser,
 } from '../types';
+import { attachAgentLinkToUser } from './agentUserLinks';
 
 function normalizeApiBaseUrl(rawUrl?: string): string {
   const normalizedUrl = (rawUrl || '/api').trim().replace(/\/$/, '');
@@ -62,6 +66,24 @@ interface AgentLoginResponse {
   };
 }
 
+interface StaffLoginResponse {
+  success: boolean;
+  message?: string;
+  user: {
+    id: string | number;
+    name: string;
+    email?: string | null;
+    phone?: string | null;
+    role?: string;
+    branch_id?: string | number | null;
+    branch_name?: string | null;
+    agent_id?: string | number | null;
+    agent_name?: string | null;
+    is_admin_branch?: boolean;
+    token: string;
+  };
+}
+
 interface WrappedCollectionResponse<T> {
   success?: boolean;
   orders?: T[];
@@ -78,6 +100,72 @@ function extractCollection<T>(payload: T[] | WrappedCollectionResponse<T>, key: 
 
   const value = payload[key];
   return Array.isArray(value) ? value : [];
+}
+
+const USER_PERMISSION_SECTIONS = [
+  'dashboard',
+  'users',
+  'orders',
+  'manual_orders',
+  'reports',
+  'products',
+  'settings',
+] as const;
+
+const USER_PERMISSION_ACTIONS = ['view', 'create', 'edit', 'delete', 'print'] as const;
+
+function createEmptyPermissions(): PermissionMap {
+  const permissions: PermissionMap = {};
+
+  USER_PERMISSION_SECTIONS.forEach((section) => {
+    permissions[section] = {
+      view: false,
+      create: false,
+      edit: false,
+      delete: false,
+      print: false,
+    };
+  });
+
+  return permissions;
+}
+
+function normalizePermissions(rawValue: unknown): PermissionMap {
+  const permissions = createEmptyPermissions();
+
+  let parsedValue = rawValue;
+  if (typeof rawValue === 'string') {
+    try {
+      parsedValue = JSON.parse(rawValue);
+    } catch {
+      return permissions;
+    }
+  }
+
+  USER_PERMISSION_SECTIONS.forEach((section) => {
+    USER_PERMISSION_ACTIONS.forEach((action) => {
+      permissions[section][action] = Boolean((parsedValue as Record<string, Record<string, unknown>> | null)?.[section]?.[action]);
+    });
+  });
+
+  return permissions;
+}
+
+function normalizeStaffUser(row: Record<string, unknown>): StaffUser {
+  return attachAgentLinkToUser({
+    id: String(row.id || ''),
+    name: String(row.name || ''),
+    username: row.email !== undefined && row.email !== null ? String(row.email) : null,
+    phone: row.phone !== undefined && row.phone !== null ? String(row.phone) : null,
+    role: String(row.role || 'employee'),
+    status: row.status !== undefined && row.status !== null ? String(row.status) : null,
+    branch_id: row.branch_id !== undefined && row.branch_id !== null ? String(row.branch_id) : null,
+    branch_name: row.branch_name !== undefined && row.branch_name !== null ? String(row.branch_name) : null,
+    createdAt: row.created_at !== undefined && row.created_at !== null ? String(row.created_at) : null,
+    linked_agent_id: row.agent_id !== undefined && row.agent_id !== null ? String(row.agent_id) : null,
+    linked_agent_name: row.agent_name !== undefined && row.agent_name !== null ? String(row.agent_name) : null,
+    permissions: normalizePermissions(row.permissions),
+  });
 }
 
 function normalizeProduct(product: Product & { category_ids?: string[] | string | null }): Product {
@@ -107,6 +195,8 @@ function normalizeRestaurant(
   item: RestaurantItem & {
     account_id?: string | number | null;
     accountId?: string | number | null;
+    agent_id?: string | number | null;
+    agentId?: string | number | null;
     account?: { id?: string | number | null; account_id?: string | number | null } | null;
   },
 ): RestaurantItem {
@@ -122,6 +212,11 @@ function normalizeRestaurant(
     id: String(item.id),
     image_url: typeof item.image_url === 'string' ? item.image_url : null,
     account_id: resolvedAccountId !== undefined && resolvedAccountId !== null ? String(resolvedAccountId) : null,
+    agent_id: item.agent_id !== undefined && item.agent_id !== null
+      ? String(item.agent_id)
+      : item.agentId !== undefined && item.agentId !== null
+        ? String(item.agentId)
+        : null,
   };
 }
 
@@ -231,6 +326,51 @@ function normalizeOrder(order: Record<string, unknown>): Order {
   };
 }
 
+function normalizeManualOrder(order: Record<string, unknown>): Order {
+  const rawItems = Array.isArray(order.items) ? order.items as Array<Record<string, unknown>> : [];
+  const normalizedItems = rawItems.map((item) => {
+    const quantity = Number(item.qty ?? item.quantity ?? 0);
+    const price = Number(item.price ?? 0);
+    return {
+      name: String(item.name || ''),
+      quantity,
+      price,
+      subtotal: Number(item.total ?? quantity * price),
+      restaurant_id: order.restaurant_id ? String(order.restaurant_id) : undefined,
+    };
+  });
+
+  const restaurantId = order.restaurant_id ? String(order.restaurant_id) : '';
+  const restaurantName = typeof order.restaurant_name === 'string' ? order.restaurant_name : '';
+
+  return {
+    id: String(order.id || ''),
+    customer: String(order.customer_name || order.customer || ''),
+    phone: String(order.customer_phone || order.phone || ''),
+    address: String(order.to_address || order.customer_address || order.address || ''),
+    total: Number(order.total_amount ?? order.total ?? 0),
+    status: String(order.status || 'pending') as Order['status'],
+    items: normalizedItems,
+    createdAt: String(order.created_at || order.createdAt || new Date().toISOString()),
+    note: typeof order.notes === 'string' ? order.notes : typeof order.note === 'string' ? order.note : '',
+    paymentMethod: typeof order.payment_method === 'string' ? order.payment_method : '',
+    deliveryFee: Number(order.delivery_fee ?? 0),
+    extraStoreFee: Number(order.extra_fee ?? 0),
+    discountAmount: Number(order.discount_amount ?? 0),
+    couponCode: typeof order.coupon_code === 'string' ? order.coupon_code : null,
+    captainName: typeof order.captain_name === 'string' ? order.captain_name : null,
+    branchName: typeof order.branch_name === 'string' ? order.branch_name : null,
+    restaurants: restaurantId || restaurantName ? [{
+      id: restaurantId,
+      name: restaurantName,
+      address: '',
+      restaurant_image: typeof order.restaurant_image === 'string' ? order.restaurant_image : null,
+      items: normalizedItems,
+      total: normalizedItems.reduce((sum, item) => sum + Number(item.subtotal || 0), 0),
+    }] : [],
+  };
+}
+
 function getAuthHeaders(): HeadersInit {
   const rawSession = localStorage.getItem(SESSION_STORAGE_KEY);
 
@@ -267,10 +407,10 @@ async function parseErrorResponse(response: Response): Promise<string> {
 
     if (text.trim()) {
       if (response.status === 404) {
-        return 'المسار المطلوب غير موجود على السيرفر';
+        return 'المسار المطلوب غير متاح حاليا';
       }
 
-      return `فشل الطلب من السيرفر برمز ${response.status}`;
+      return `فشل تنفيذ الطلب برمز ${response.status}`;
     }
   }
 
@@ -283,7 +423,7 @@ async function parseErrorResponse(response: Response): Promise<string> {
   }
 
   if (response.status === 404) {
-    return 'تعذر العثور على endpoint في السيرفر';
+    return 'تعذر العثور على المسار المطلوب';
   }
 
   return `فشل تنفيذ الطلب برمز ${response.status}`;
@@ -310,7 +450,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       headers,
     });
   } catch {
-    throw new Error('تعذر الوصول إلى السيرفر. تحقق من رابط API والاتصال بالإنترنت');
+    throw new Error('تعذر إكمال الاتصال. تحقق من رابط API والاتصال بالإنترنت');
   }
 
   if (!response.ok) {
@@ -562,25 +702,58 @@ function normalizeDashboardData(payload: Record<string, unknown>): DashboardData
 
 export const api = {
   async login(phone: string, password: string): Promise<AuthSession> {
-    const response = await request<AgentLoginResponse>('/agents/login', {
-      method: 'POST',
-      body: JSON.stringify({ phone, password }),
-    });
+    try {
+      const response = await request<AgentLoginResponse>('/agents/login', {
+        method: 'POST',
+        body: JSON.stringify({ phone, password }),
+      });
 
-    return {
-      token: response.token,
-      user: {
-        id: String(response.agent.id),
-        name: response.agent.name,
-        role: 'agent',
-        phone: response.agent.phone,
-        branch_id: response.agent.branch_id,
-        account_id: response.agent.account_id !== undefined && response.agent.account_id !== null
-          ? String(response.agent.account_id)
-          : null,
-        image_url: response.agent.image_url ?? null,
-      },
-    };
+      return {
+        token: response.token,
+        user: {
+          id: String(response.agent.id),
+          name: response.agent.name,
+          role: 'agent',
+          phone: response.agent.phone,
+          branch_id: response.agent.branch_id,
+          account_id: response.agent.account_id !== undefined && response.agent.account_id !== null
+            ? String(response.agent.account_id)
+            : null,
+          image_url: response.agent.image_url ?? null,
+        },
+      };
+    } catch (agentError) {
+      const response = await request<StaffLoginResponse>('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ identifier: phone, password }),
+      });
+
+      if (!response.success || !response.user?.token) {
+        throw new Error(response.message || (agentError instanceof Error ? agentError.message : 'تعذر تسجيل الدخول'));
+      }
+
+      return {
+        token: response.user.token,
+        user: attachAgentLinkToUser({
+          id: String(response.user.id),
+          name: response.user.name,
+          role: String(response.user.role || 'employee'),
+          phone: response.user.phone ?? undefined,
+          email: response.user.email ?? null,
+          branch_id: response.user.branch_id !== undefined && response.user.branch_id !== null
+            ? String(response.user.branch_id)
+            : undefined,
+          branch_name: response.user.branch_name ?? null,
+          linked_agent_id: response.user.agent_id !== undefined && response.user.agent_id !== null
+            ? String(response.user.agent_id)
+            : null,
+          linked_agent_name: response.user.agent_name ?? null,
+          is_admin_branch: Boolean(response.user.is_admin_branch),
+          account_id: null,
+          image_url: null,
+        }),
+      };
+    }
   },
 
   async updateRestaurantLogo(restaurantId: string, file: File): Promise<string | null> {
@@ -631,6 +804,28 @@ export const api = {
     return request<Order[] | WrappedCollectionResponse<Order>>(`/orders/agent-summary${query ? `?${query}` : ''}`).then((response) =>
       extractCollection(response, 'orders').map((order) => normalizeOrder(order as unknown as Record<string, unknown>)),
     );
+  },
+
+  getManualOrders(restaurantId?: string) {
+    return request<{ success?: boolean; orders?: Array<Record<string, unknown>> } | Array<Record<string, unknown>>>(
+      '/manual-orders/manual-list',
+    ).then((response) => {
+      const rows = Array.isArray(response)
+        ? response
+        : Array.isArray(response.orders)
+          ? response.orders
+          : [];
+
+      return rows
+        .filter((row) => {
+          if (!restaurantId) {
+            return true;
+          }
+
+          return String(row.restaurant_id || '') === String(restaurantId);
+        })
+        .map((row) => normalizeManualOrder(row));
+    });
   },
 
   getOrderDetails(id: string) {
@@ -784,6 +979,69 @@ export const api = {
   async deleteUnit(id: string) {
     await request<{ success?: boolean; message?: string }>(`/units/${id}`, {
       method: 'DELETE',
+    });
+  },
+
+  getUsers() {
+    return request<{ success?: boolean; users?: Array<Record<string, unknown>> } | Array<Record<string, unknown>>>('/users').then((response) => {
+      const rows = Array.isArray(response)
+        ? response
+        : Array.isArray(response.users)
+          ? response.users
+          : [];
+
+      return rows.map((row) => normalizeStaffUser(row));
+    });
+  },
+
+  getUserPermissions(id: string) {
+    return request<{ success?: boolean; permissions?: unknown; role?: string }>(`/users/${id}/permissions`).then((response) => ({
+      role: String(response.role || 'employee'),
+      permissions: normalizePermissions(response.permissions),
+    }));
+  },
+
+  async createUser(payload: {
+    name: string;
+    username: string;
+    phone: string;
+    password: string;
+    role?: StaffRole;
+    agentId?: string | null;
+    permissions?: PermissionMap;
+  }) {
+    const permissions = payload.permissions || createEmptyPermissions();
+
+    await request<{ success?: boolean }>('/users', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: payload.name,
+        email: payload.username,
+        phone: payload.phone,
+        password: payload.password,
+        role: payload.role || 'employee',
+        agent_id: payload.agentId || null,
+        permissions: JSON.stringify(permissions),
+      }),
+    });
+
+    const users = await api.getUsers();
+    const createdUser = users.find((user) => user.phone === payload.phone || user.username === payload.username);
+
+    if (!createdUser) {
+      throw new Error('تمت إضافة المستخدم لكن تعذر جلب بياناته');
+    }
+
+    return createdUser;
+  },
+
+  async updateUserPermissions(id: string, role: string, permissions: PermissionMap) {
+    await request<{ success?: boolean; role?: string; permissions?: unknown }>(`/users/${id}/permissions`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        role,
+        permissions,
+      }),
     });
   },
 

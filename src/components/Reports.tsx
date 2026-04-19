@@ -796,7 +796,7 @@ const response = await api.getAccountStatement({
     <div className="space-y-4">
       <div>
         <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-1">التقارير والإحصائيات</h2>
-        <p className="text-sm text-gray-600">عرض بيانات التقارير وكشف الحساب مباشرة من السيرفر</p>
+        <p className="text-sm text-gray-600">عرض بيانات التقارير وكشف الحساب بشكل مباشر</p>
       </div>
 
       {error && (

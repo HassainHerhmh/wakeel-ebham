@@ -89,7 +89,7 @@ export function Dashboard({ onNavigate, restaurantName }: DashboardProps) {
     {
       title: 'الطلبات الجديدة',
       value: String(dashboard.newOrders),
-      change: 'محدثة من السيرفر',
+      change: 'محدثة تلقائيا',
       changeType: 'increase' as const,
       icon: ShoppingCart,
       onClick: () => onNavigate('orders'),
@@ -144,7 +144,7 @@ export function Dashboard({ onNavigate, restaurantName }: DashboardProps) {
       <div>
         <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 mb-2">لوحة التحكم - {restaurantName}</h2>
         <p className="text-sm sm:text-base text-gray-600">
-          {isLoading ? 'جاري جلب ملخص الأداء من السيرفر...' : `نظرة عامة على أداء ${restaurantName} من بيانات السيرفر`}
+          {isLoading ? 'جاري تحميل ملخص الأداء...' : `نظرة عامة على أداء ${restaurantName}`}
         </p>
       </div>
 

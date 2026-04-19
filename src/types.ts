@@ -1,4 +1,4 @@
-export type Page = 'dashboard' | 'orders' | 'reports' | 'products' | 'settings';
+export type Page = 'dashboard' | 'orders' | 'reports' | 'products' | 'users' | 'settings';
 
 export type OrderStatus = 'pending' | 'scheduled' | 'processing' | 'preparing' | 'confirmed' | 'ready' | 'delivering' | 'completed' | 'cancelled';
 
@@ -66,6 +66,7 @@ export interface RestaurantItem {
   name: string;
   image_url?: string | null;
   account_id?: string | null;
+  agent_id?: string | null;
 }
 
 export interface NamedItem {
@@ -136,9 +137,14 @@ export interface AuthUser {
   name: string;
   role: string;
   phone?: string;
+  email?: string | null;
   branch_id?: string | number;
+  branch_name?: string | null;
+  is_admin_branch?: boolean;
   account_id?: string | null;
   image_url?: string | null;
+  linked_agent_id?: string | null;
+  linked_agent_name?: string | null;
 }
 
 export interface AuthSession {
@@ -154,3 +160,38 @@ export interface DashboardData {
   weeklySales: Array<{ name: string; value: number }>;
   orderDistribution: Array<{ name: string; value: number }>;
 }
+
+export type AppOrderNotificationType = 'new_pending' | 'delay_warning';
+
+export interface AppOrderNotification {
+  id: string;
+  type: AppOrderNotificationType;
+  orderId: string;
+  orderSource: 'normal' | 'manual';
+  restaurantId?: string | null;
+  title: string;
+  message: string;
+  createdAt: string;
+  isRead: boolean;
+}
+
+export type PermissionAction = 'view' | 'create' | 'edit' | 'delete' | 'print';
+
+export type PermissionMap = Record<string, Record<PermissionAction, boolean>>;
+
+export interface StaffUser {
+  id: string;
+  name: string;
+  username: string | null;
+  phone: string | null;
+  role: string;
+  status?: string | null;
+  branch_id?: string | null;
+  branch_name?: string | null;
+  createdAt?: string | null;
+  linked_agent_id?: string | null;
+  linked_agent_name?: string | null;
+  permissions: PermissionMap;
+}
+
+export type StaffRole = 'employee' | 'accountant' | 'cashier';

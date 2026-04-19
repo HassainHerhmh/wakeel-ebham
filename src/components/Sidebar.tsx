@@ -1,8 +1,9 @@
-import { BarChart3, ShoppingBag, FileText, ChefHat, X, Package, Settings as SettingsIcon, PanelRightClose, PanelRightOpen } from 'lucide-react';
+import { BarChart3, ShoppingBag, FileText, ChefHat, X, Package, Settings as SettingsIcon, PanelRightClose, PanelRightOpen, Users as UsersIcon } from 'lucide-react';
+import type { Page } from '../types';
 
 interface SidebarProps {
-  currentPage: string;
-  setCurrentPage: (page: 'dashboard' | 'orders' | 'reports' | 'products' | 'settings') => void;
+  currentPage: Page;
+  setCurrentPage: (page: Page) => void;
   isOpen: boolean;
   onClose: () => void;
   isCollapsed: boolean;
@@ -26,11 +27,12 @@ export function Sidebar({
     { id: 'orders', label: 'الطلبات', icon: ShoppingBag },
     { id: 'products', label: 'المنتجات', icon: Package },
     { id: 'reports', label: 'التقارير', icon: FileText },
+    { id: 'users', label: 'المستخدمين', icon: UsersIcon },
     { id: 'settings', label: 'الإعدادات', icon: SettingsIcon },
   ];
 
-  const handleItemClick = (id: string) => {
-    setCurrentPage(id as any);
+  const handleItemClick = (id: Page) => {
+    setCurrentPage(id);
     onClose();
   };
 
@@ -110,7 +112,7 @@ export function Sidebar({
           return (
             <button
               key={item.id}
-              onClick={() => handleItemClick(item.id)}
+              onClick={() => handleItemClick(item.id as Page)}
               className={`w-full flex items-center ${isCollapsed ? 'lg:justify-center lg:px-3' : 'space-x-3 space-x-reverse px-4 sm:px-6'} py-3 text-right hover:bg-gray-50 transition-colors ${
                 currentPage === item.id
                   ? 'bg-green-50 text-green-600 border-r-2 border-green-600'
