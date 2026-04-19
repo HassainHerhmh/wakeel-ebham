@@ -100,17 +100,20 @@ export function Sidebar({
             )}
           </div>
 
-          {isCollapsed && (
+        </div>
+
+        {isCollapsed && (
+          <div className="hidden lg:flex justify-center border-b border-gray-200 px-3 py-3">
             <button
               type="button"
               onClick={onToggleCollapse}
-              className="hidden lg:flex absolute top-4 left-3 items-center justify-center rounded-lg border border-gray-200 p-2 text-gray-600 hover:bg-green-50 hover:text-green-600 transition-colors"
+              className="flex items-center justify-center rounded-lg border border-gray-200 p-2 text-gray-600 hover:bg-green-50 hover:text-green-600 transition-colors"
               title="فتح السايد بار"
             >
               <PanelRightOpen className="h-4 w-4" />
             </button>
-          )}
-        </div>
+          </div>
+        )}
 
       <nav className="mt-4 sm:mt-6">
         {visibleMenuItems.map((item) => {
