@@ -623,6 +623,13 @@ function formatDayLabelForDashboard(dateValue: string) {
   return parsedDate.toLocaleDateString('ar-SA', { day: 'numeric', month: 'short' });
 }
 
+function getLocalDateKey(dateValue: Date) {
+  const year = dateValue.getFullYear();
+  const month = `${dateValue.getMonth() + 1}`.padStart(2, '0');
+  const day = `${dateValue.getDate()}`.padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 function buildDashboardFromOrders(orders: Order[]): DashboardData {
   const sortedOrders = [...orders].sort(
     (left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
@@ -642,7 +649,7 @@ function buildDashboardFromOrders(orders: Order[]): DashboardData {
   const previousTotal = previousWeek.reduce((sum, order) => sum + toSafeNumber(order.total), 0);
   const growthRate = previousTotal > 0 ? ((latestTotal - previousTotal) / previousTotal) * 100 : 0;
 
-  const dailySalesMap = new Map<string, { rawDate: string; value: number }>();
+  const dailySalesMap = new Map<string, number>();
 
   sortedOrders.forEach((order) => {
     if (order.status === 'cancelled') {
@@ -654,19 +661,21 @@ function buildDashboardFromOrders(orders: Order[]): DashboardData {
       return;
     }
 
-    const rawDate = parsedDate.toISOString().split('T')[0];
-    const current = dailySalesMap.get(rawDate) || { rawDate, value: 0 };
-    current.value += toSafeNumber(order.total);
-    dailySalesMap.set(rawDate, current);
+    const rawDate = getLocalDateKey(parsedDate);
+    dailySalesMap.set(rawDate, (dailySalesMap.get(rawDate) || 0) + toSafeNumber(order.total));
   });
 
-  const weeklySales = Array.from(dailySalesMap.values())
-    .sort((left, right) => left.rawDate.localeCompare(right.rawDate))
-    .slice(-7)
-    .map((entry) => ({
-      name: formatDayLabelForDashboard(entry.rawDate),
-      value: Number(entry.value.toFixed(2)),
-    }));
+  const weeklySales = Array.from({ length: 7 }, (_, index) => {
+    const targetDate = new Date();
+    targetDate.setHours(0, 0, 0, 0);
+    targetDate.setDate(targetDate.getDate() - (6 - index));
+
+    const dateKey = getLocalDateKey(targetDate);
+    return {
+      name: formatDayLabelForDashboard(dateKey),
+      value: Number((dailySalesMap.get(dateKey) || 0).toFixed(2)),
+    };
+  });
 
   const statusCount = sortedOrders.reduce<Record<string, number>>((accumulator, order) => {
     const key = String(order.status || 'unknown');

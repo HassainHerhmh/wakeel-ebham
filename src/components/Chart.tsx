@@ -40,10 +40,21 @@ export function Chart({ title, type, data }: ChartProps) {
   const lineChartTicks = type === 'sales'
     ? Array.from({ length: 5 }, (_, index) => Math.round((maxValue / 4) * (4 - index)))
     : [];
+  const salesChartWidth = Math.max(820, data.length * 118);
+  const salesChartHeight = 360;
+  const salesChartLeftPadding = 96;
+  const salesChartRightPadding = 28;
+  const salesChartTopPadding = 24;
+  const salesChartBottomAxisY = 270;
+  const salesChartBottomLabelY = 322;
+  const salesChartUsableWidth = salesChartWidth - salesChartLeftPadding - salesChartRightPadding;
+  const salesChartUsableHeight = salesChartBottomAxisY - salesChartTopPadding;
   const lineChartPoints = type === 'sales'
     ? data.map((item, index) => ({
-      x: data.length === 1 ? 420 : 40 + (index * (760 / Math.max(data.length - 1, 1))),
-      y: 300 - ((item.value / maxValue) * 240),
+      x: data.length === 1
+        ? salesChartLeftPadding + (salesChartUsableWidth / 2)
+        : salesChartLeftPadding + (index * (salesChartUsableWidth / Math.max(data.length - 1, 1))),
+      y: salesChartBottomAxisY - ((item.value / maxValue) * salesChartUsableHeight),
       value: item.value,
       name: item.name,
     }))
@@ -95,24 +106,24 @@ export function Chart({ title, type, data }: ChartProps) {
         </div>
       ) : type === 'sales' ? (
         <div className="rounded-2xl border border-slate-100 bg-slate-50/40 p-4 sm:p-5">
-          <div className="relative overflow-x-auto">
-            <div className="min-w-[760px]">
-              <svg viewBox="0 0 860 360" className="h-[300px] w-full sm:h-[340px]">
+          <div className="relative overflow-x-auto pb-3">
+            <div style={{ width: `${salesChartWidth}px` }}>
+              <svg viewBox={`0 0 ${salesChartWidth} ${salesChartHeight}`} className="h-[300px] w-full sm:h-[340px]">
                 {lineChartTicks.map((tick, index) => {
-                  const y = 30 + (index * 60);
+                  const y = salesChartTopPadding + (index * (salesChartUsableHeight / 4));
                   return (
                     <g key={tick}>
-                      <line x1="40" y1={y} x2="800" y2={y} stroke="#d1d5db" strokeDasharray="6 6" />
-                      <text x="10" y={y + 6} fontSize="14" fill="#6b7280">{tick}</text>
+                      <line x1={salesChartLeftPadding} y1={y} x2={salesChartWidth - salesChartRightPadding} y2={y} stroke="#d1d5db" strokeDasharray="6 6" />
+                      <text x={salesChartLeftPadding - 14} y={y + 6} textAnchor="end" fontSize="14" fill="#6b7280">{tick.toLocaleString()}</text>
                     </g>
                   );
                 })}
 
                 {lineChartPoints.map((point) => (
-                  <line key={`${point.name}-grid`} x1={point.x} y1="30" x2={point.x} y2="270" stroke="#d1d5db" strokeDasharray="6 6" />
+                  <line key={`${point.name}-grid`} x1={point.x} y1={salesChartTopPadding} x2={point.x} y2={salesChartBottomAxisY} stroke="#d1d5db" strokeDasharray="6 6" />
                 ))}
 
-                <line x1="40" y1="270" x2="800" y2="270" stroke="#6b7280" strokeWidth="1.5" />
+                <line x1={salesChartLeftPadding} y1={salesChartBottomAxisY} x2={salesChartWidth - salesChartRightPadding} y2={salesChartBottomAxisY} stroke="#6b7280" strokeWidth="1.5" />
                 <path d={linePath} fill="none" stroke="#10b981" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
 
                 {lineChartPoints.map((point) => (
@@ -122,7 +133,7 @@ export function Chart({ title, type, data }: ChartProps) {
                 ))}
 
                 {lineChartPoints.map((point) => (
-                  <text key={`${point.name}-label`} x={point.x} y="305" textAnchor="middle" fontSize="14" fill="#4b5563">{point.name}</text>
+                  <text key={`${point.name}-label`} x={point.x} y={salesChartBottomLabelY} textAnchor="middle" fontSize="14" fill="#4b5563">{point.name}</text>
                 ))}
               </svg>
             </div>
