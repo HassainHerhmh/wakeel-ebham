@@ -600,15 +600,15 @@ export const api = {
 
   async getDashboard() {
     try {
-      const payload = await request<Record<string, unknown>>('/dashboard');
-      return normalizeDashboardData(payload);
+      const orders = await api.getAgentOrders();
+      return buildDashboardFromOrders(orders);
     } catch {
       try {
-        const orders = await api.getAgentOrders();
-        return buildDashboardFromOrders(orders);
-      } catch {
         const orders = await api.getOrders();
         return buildDashboardFromOrders(orders);
+      } catch {
+        const payload = await request<Record<string, unknown>>('/dashboard');
+        return normalizeDashboardData(payload);
       }
     }
   },
@@ -861,13 +861,12 @@ export const api = {
 
       return Array.isArray(response.list) ? response.list.map((row) => normalizeCommissionReportEntry(row)) : [];
     } catch {
-      const [orders, settings, agentInfoRows] = await Promise.all([
+      const [orders, agentInfoRows] = await Promise.all([
         api.getAgentOrders(filters?.restaurantId),
-        api.getSettings().catch(() => null),
         api.getAgentInfo().catch(() => []),
       ]);
 
-      const commissionRate = normalizeCommissionRate(Number(settings?.commissionRate ?? 0));
+      const commissionRate = 0.05;
       const activeContract = pickActiveCommissionContract(agentInfoRows, filters?.agentId);
 
       return orders
