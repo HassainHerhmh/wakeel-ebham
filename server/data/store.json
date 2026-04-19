@@ -1,0 +1,166 @@
+{
+  "settings": {
+    "storeName": "مطعم الديار",
+    "companyName": "شركة إبهام للتوصيل",
+    "commissionRate": 0.05,
+    "users": [
+      {
+        "id": "1",
+        "username": "770067118",
+        "password": "770067118",
+        "name": "محمد أحمد",
+        "role": "مدير المتجر"
+      }
+    ],
+    "categories": [
+      { "id": "1", "name": "برجر", "createdAt": "2024-01-01" },
+      { "id": "2", "name": "بيتزا", "createdAt": "2024-01-01" },
+      { "id": "3", "name": "شاورما", "createdAt": "2024-01-01" },
+      { "id": "4", "name": "سلطات", "createdAt": "2024-01-01" },
+      { "id": "5", "name": "مشروبات", "createdAt": "2024-01-01" },
+      { "id": "6", "name": "حلويات", "createdAt": "2024-01-01" }
+    ],
+    "types": [
+      { "id": "1", "name": "فطار", "createdAt": "2024-01-01" },
+      { "id": "2", "name": "غداء", "createdAt": "2024-01-01" },
+      { "id": "3", "name": "عشاء", "createdAt": "2024-01-01" },
+      { "id": "4", "name": "وجبة خفيفة", "createdAt": "2024-01-01" },
+      { "id": "5", "name": "حلويات", "createdAt": "2024-01-01" },
+      { "id": "6", "name": "مشروبات", "createdAt": "2024-01-01" }
+    ],
+    "units": [
+      { "id": "1", "name": "حبة", "createdAt": "2024-01-01" },
+      { "id": "2", "name": "طبق", "createdAt": "2024-01-01" },
+      { "id": "3", "name": "كوب", "createdAt": "2024-01-01" },
+      { "id": "4", "name": "نصف كوب", "createdAt": "2024-01-01" },
+      { "id": "5", "name": "ملعقة", "createdAt": "2024-01-01" },
+      { "id": "6", "name": "قطعة", "createdAt": "2024-01-01" },
+      { "id": "7", "name": "شريحة", "createdAt": "2024-01-01" },
+      { "id": "8", "name": "كيلو", "createdAt": "2024-01-01" },
+      { "id": "9", "name": "جرام", "createdAt": "2024-01-01" },
+      { "id": "10", "name": "500 جرام", "createdAt": "2024-01-01" },
+      { "id": "11", "name": "لتر", "createdAt": "2024-01-01" }
+    ]
+  },
+  "products": [
+    {
+      "id": "1",
+      "name": "برجر دجاج كلاسيك",
+      "description": "برجر دجاج مشوي مع الخس والطماطم والمايونيز",
+      "price": 35,
+      "category": "برجر",
+      "type": "غداء",
+      "unit": "حبة",
+      "image": "https://images.pexels.com/photos/1639557/pexels-photo-1639557.jpeg?auto=compress&cs=tinysrgb&w=400",
+      "available": true,
+      "createdAt": "2024-01-10"
+    },
+    {
+      "id": "2",
+      "name": "بيتزا مارجريتا",
+      "description": "بيتزا كلاسيكية بالجبن والطماطم والريحان",
+      "price": 45,
+      "category": "بيتزا",
+      "type": "عشاء",
+      "unit": "حبة",
+      "image": "https://images.pexels.com/photos/315755/pexels-photo-315755.jpeg?auto=compress&cs=tinysrgb&w=400",
+      "available": true,
+      "createdAt": "2024-01-08"
+    },
+    {
+      "id": "3",
+      "name": "شاورما دجاج",
+      "description": "شاورما دجاج طازجة مع الخضار والثوم",
+      "price": 25,
+      "category": "شاورما",
+      "type": "غداء",
+      "unit": "حبة",
+      "image": "https://images.pexels.com/photos/4676410/pexels-photo-4676410.jpeg?auto=compress&cs=tinysrgb&w=400",
+      "available": true,
+      "createdAt": "2024-01-05"
+    },
+    {
+      "id": "4",
+      "name": "سلطة سيزر",
+      "description": "سلطة سيزر طازجة مع الدجاج المشوي والجبن",
+      "price": 28.5,
+      "category": "سلطات",
+      "type": "فطار",
+      "unit": "طبق",
+      "image": "https://images.pexels.com/photos/1059905/pexels-photo-1059905.jpeg?auto=compress&cs=tinysrgb&w=400",
+      "available": false,
+      "createdAt": "2024-01-03"
+    }
+  ],
+  "orders": [
+    {
+      "id": "1001",
+      "customer": "سارة أحمد",
+      "phone": "0501234567",
+      "address": "الرياض، حي النخيل، شارع الملك فهد",
+      "total": 125.5,
+      "status": "pending",
+      "items": [
+        { "name": "برجر دجاج", "quantity": 2, "price": 35 },
+        { "name": "بطاطس مقلية", "quantity": 2, "price": 15 },
+        { "name": "كوكا كولا", "quantity": 2, "price": 8 },
+        { "name": "آيس كريم", "quantity": 1, "price": 9.5 }
+      ],
+      "createdAt": "2026-04-13T14:30:00"
+    },
+    {
+      "id": "1002",
+      "customer": "خالد محمد",
+      "phone": "0507654321",
+      "address": "جدة، حي الحمراء، طريق الملك عبدالعزيز",
+      "total": 89.75,
+      "status": "confirmed",
+      "items": [
+        { "name": "شاورما دجاج", "quantity": 3, "price": 25 },
+        { "name": "سلطة تبولة", "quantity": 1, "price": 14.75 }
+      ],
+      "createdAt": "2026-04-12T13:15:00"
+    },
+    {
+      "id": "1003",
+      "customer": "فاطمة علي",
+      "phone": "0551234567",
+      "address": "الدمام، حي الفيصلية، شارع الأمير سعود",
+      "total": 156.25,
+      "status": "delivery",
+      "items": [
+        { "name": "بيتزا مارجريتا", "quantity": 1, "price": 45 },
+        { "name": "بيتزا بيبروني", "quantity": 1, "price": 55 },
+        { "name": "خبز بالثوم", "quantity": 2, "price": 18 },
+        { "name": "تشيز كيك", "quantity": 1, "price": 20.25 }
+      ],
+      "createdAt": "2026-04-11T12:00:00"
+    },
+    {
+      "id": "1004",
+      "customer": "أحمد سالم",
+      "phone": "0557001122",
+      "address": "مكة، حي العزيزية",
+      "total": 210,
+      "status": "completed",
+      "items": [
+        { "name": "وجبة عائلية", "quantity": 2, "price": 105 }
+      ],
+      "createdAt": "2026-04-09T20:10:00"
+    },
+    {
+      "id": "1005",
+      "customer": "ريم عبدالله",
+      "phone": "0533300111",
+      "address": "المدينة، حي الدفاع",
+      "total": 73,
+      "status": "cancelled",
+      "items": [
+        { "name": "بيتزا خضار", "quantity": 1, "price": 41 },
+        { "name": "عصير برتقال", "quantity": 2, "price": 16 }
+      ],
+      "cancelReason": "طلب العميل إلغاء الطلب",
+      "createdAt": "2026-04-08T18:20:00"
+    }
+  ]
+}
