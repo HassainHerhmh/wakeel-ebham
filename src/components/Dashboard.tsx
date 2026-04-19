@@ -170,18 +170,18 @@ export function Dashboard({ onNavigate, restaurantName }: DashboardProps) {
           type="sales"
           data={dailySales.length > 0 ? dailySales : [{ name: 'لا يوجد', value: 0 }]}
         />
-        <Chart 
-          title="توزيع الطلبات" 
-          type="orders"
-          data={normalizedOrderDistribution.length > 0 ? normalizedOrderDistribution : [{ name: 'لا يوجد', value: 1 }]}
-        />
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 sm:gap-6">
         <Chart
           title="أكثر 5 منتجات مبيعًا"
           type="top-products"
           data={topProductsChartData.length > 0 ? topProductsChartData : [{ name: 'لا يوجد', value: 0, meta: '0 مرة طلب' }]}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+        <Chart 
+          title="توزيع الطلبات" 
+          type="orders"
+          data={normalizedOrderDistribution.length > 0 ? normalizedOrderDistribution : [{ name: 'لا يوجد', value: 1 }]}
         />
       </div>
     </div>
