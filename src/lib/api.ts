@@ -613,14 +613,14 @@ function toSafeNumber(value: unknown) {
   return Number.isFinite(numericValue) ? numericValue : 0;
 }
 
-function formatWeekdayForDashboard(dateValue: string) {
+function formatDayLabelForDashboard(dateValue: string) {
   const parsedDate = new Date(dateValue);
 
   if (Number.isNaN(parsedDate.getTime())) {
     return 'غير معروف';
   }
 
-  return parsedDate.toLocaleDateString('ar-SA', { weekday: 'short' });
+  return parsedDate.toLocaleDateString('ar-SA', { day: 'numeric', month: 'short' });
 }
 
 function buildDashboardFromOrders(orders: Order[]): DashboardData {
@@ -642,12 +642,30 @@ function buildDashboardFromOrders(orders: Order[]): DashboardData {
   const previousTotal = previousWeek.reduce((sum, order) => sum + toSafeNumber(order.total), 0);
   const growthRate = previousTotal > 0 ? ((latestTotal - previousTotal) / previousTotal) * 100 : 0;
 
-  const weeklySales = latestWeek
-    .slice()
-    .reverse()
-    .map((order) => ({
-      name: formatWeekdayForDashboard(order.createdAt),
-      value: toSafeNumber(order.total),
+  const dailySalesMap = new Map<string, { rawDate: string; value: number }>();
+
+  sortedOrders.forEach((order) => {
+    if (order.status === 'cancelled') {
+      return;
+    }
+
+    const parsedDate = new Date(order.createdAt);
+    if (Number.isNaN(parsedDate.getTime())) {
+      return;
+    }
+
+    const rawDate = parsedDate.toISOString().split('T')[0];
+    const current = dailySalesMap.get(rawDate) || { rawDate, value: 0 };
+    current.value += toSafeNumber(order.total);
+    dailySalesMap.set(rawDate, current);
+  });
+
+  const weeklySales = Array.from(dailySalesMap.values())
+    .sort((left, right) => left.rawDate.localeCompare(right.rawDate))
+    .slice(-7)
+    .map((entry) => ({
+      name: formatDayLabelForDashboard(entry.rawDate),
+      value: Number(entry.value.toFixed(2)),
     }));
 
   const statusCount = sortedOrders.reduce<Record<string, number>>((accumulator, order) => {

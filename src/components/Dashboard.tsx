@@ -113,19 +113,13 @@ export function Dashboard({ onNavigate, restaurantName }: DashboardProps) {
     },
   ];
 
-  const dailySales = useMemo(() => {
-    const groupedByDay = new Map<string, number>();
-
-    dashboard.weeklySales.forEach((item) => {
-      const label = String(item.name || '').trim() || 'غير معروف';
-      groupedByDay.set(label, (groupedByDay.get(label) || 0) + Number(item.value || 0));
-    });
-
-    return Array.from(groupedByDay.entries()).map(([name, value]) => ({
-      name,
-      value,
-    }));
-  }, [dashboard.weeklySales]);
+  const dailySales = useMemo(
+    () => dashboard.weeklySales.map((item) => ({
+      name: item.name,
+      value: item.value,
+    })),
+    [dashboard.weeklySales],
+  );
 
   const normalizedOrderDistribution = useMemo(() => {
     const grouped = new Map<string, number>();
@@ -166,22 +160,22 @@ export function Dashboard({ onNavigate, restaurantName }: DashboardProps) {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6"> 
         <Chart 
-          title="المبيعات الأسبوعية" 
+          title="المبيعات اليومية" 
           type="sales"
           data={dailySales.length > 0 ? dailySales : [{ name: 'لا يوجد', value: 0 }]}
         />
-        <Chart
-          title="أكثر 5 منتجات مبيعًا"
-          type="top-products"
-          data={topProductsChartData.length > 0 ? topProductsChartData : [{ name: 'لا يوجد', value: 0, meta: '0 مرة طلب' }]}
-        />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         <Chart 
           title="توزيع الطلبات" 
           type="orders"
           data={normalizedOrderDistribution.length > 0 ? normalizedOrderDistribution : [{ name: 'لا يوجد', value: 1 }]}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:gap-6">
+        <Chart
+          title="أكثر 5 منتجات مبيعًا"
+          type="top-products"
+          data={topProductsChartData.length > 0 ? topProductsChartData : [{ name: 'لا يوجد', value: 0, meta: '0 مرة طلب' }]}
         />
       </div>
     </div>

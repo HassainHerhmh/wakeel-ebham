@@ -10,11 +10,45 @@ interface ChartProps {
   data: ChartData[];
 }
 
+function buildSmoothPath(points: Array<{ x: number; y: number }>) {
+  if (points.length === 0) {
+    return '';
+  }
+
+  if (points.length === 1) {
+    return `M ${points[0].x} ${points[0].y}`;
+  }
+
+  let path = `M ${points[0].x} ${points[0].y}`;
+
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const current = points[index];
+    const next = points[index + 1];
+    const controlX = (current.x + next.x) / 2;
+
+    path += ` C ${controlX} ${current.y}, ${controlX} ${next.y}, ${next.x} ${next.y}`;
+  }
+
+  return path;
+}
+
 export function Chart({ title, type, data }: ChartProps) {
   const maxValue = Math.max(...data.map(item => item.value), 1);
   const topProductsTicks = type === 'top-products'
     ? Array.from({ length: 5 }, (_, index) => Math.round((maxValue / 4) * (4 - index)))
     : [];
+  const lineChartTicks = type === 'sales'
+    ? Array.from({ length: 5 }, (_, index) => Math.round((maxValue / 4) * (4 - index)))
+    : [];
+  const lineChartPoints = type === 'sales'
+    ? data.map((item, index) => ({
+      x: data.length === 1 ? 420 : 40 + (index * (760 / Math.max(data.length - 1, 1))),
+      y: 300 - ((item.value / maxValue) * 240),
+      value: item.value,
+      name: item.name,
+    }))
+    : [];
+  const linePath = type === 'sales' ? buildSmoothPath(lineChartPoints) : '';
 
   return (
     <div className="bg-white rounded-lg sm:rounded-xl shadow-sm border border-gray-100 p-3 sm:p-4 lg:p-6">
@@ -60,26 +94,44 @@ export function Chart({ title, type, data }: ChartProps) {
           </div>
         </div>
       ) : type === 'sales' ? (
-        <div className="space-y-2 sm:space-y-3">
-          {data.map((item, index) => (
-            <div key={index} className="flex items-center">
-              <div className="w-16 sm:w-20 lg:w-28 text-xs text-gray-600 flex-shrink-0 line-clamp-2">{item.name}</div>
-              <div className="flex-1 mx-2 sm:mx-3">
-                <div className="bg-gray-200 rounded-full h-1.5 sm:h-2">
-                  <div
-                    className="bg-green-500 h-1.5 sm:h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${(item.value / maxValue) * 100}%` }}
-                  ></div>
-                </div>
-                {item.meta && (
-                  <div className="mt-1 text-[11px] sm:text-xs text-gray-500">{item.meta}</div>
-                )}
-              </div>
-              <div className="w-14 sm:w-16 lg:w-20 text-xs font-medium text-gray-900 text-left flex-shrink-0">
-                {item.value.toLocaleString()}
-              </div>
+        <div className="rounded-2xl border border-slate-100 bg-slate-50/40 p-4 sm:p-5">
+          <div className="relative overflow-x-auto">
+            <div className="min-w-[760px]">
+              <svg viewBox="0 0 860 360" className="h-[300px] w-full sm:h-[340px]">
+                {lineChartTicks.map((tick, index) => {
+                  const y = 30 + (index * 60);
+                  return (
+                    <g key={tick}>
+                      <line x1="40" y1={y} x2="800" y2={y} stroke="#d1d5db" strokeDasharray="6 6" />
+                      <text x="10" y={y + 6} fontSize="14" fill="#6b7280">{tick}</text>
+                    </g>
+                  );
+                })}
+
+                {lineChartPoints.map((point) => (
+                  <line key={`${point.name}-grid`} x1={point.x} y1="30" x2={point.x} y2="270" stroke="#d1d5db" strokeDasharray="6 6" />
+                ))}
+
+                <line x1="40" y1="270" x2="800" y2="270" stroke="#6b7280" strokeWidth="1.5" />
+                <path d={linePath} fill="none" stroke="#10b981" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
+
+                {lineChartPoints.map((point) => (
+                  <g key={`${point.name}-point`}>
+                    <circle cx={point.x} cy={point.y} r="8" fill="#ffffff" stroke="#10b981" strokeWidth="5" />
+                  </g>
+                ))}
+
+                {lineChartPoints.map((point) => (
+                  <text key={`${point.name}-label`} x={point.x} y="305" textAnchor="middle" fontSize="14" fill="#4b5563">{point.name}</text>
+                ))}
+              </svg>
             </div>
-          ))}
+          </div>
+
+          <div className="mt-3 flex items-center justify-center gap-2 text-sm text-emerald-600">
+            <span className="inline-block h-[3px] w-7 rounded-full bg-emerald-500"></span>
+            <span>المبيعات</span>
+          </div>
         </div>
       ) : (
         <div className="flex justify-center">
