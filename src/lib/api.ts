@@ -1046,6 +1046,18 @@ export const api = {
     });
   },
 
+  async disableUser(id: string) {
+    await request<{ success?: boolean; message?: string }>(`/users/${id}/disable`, {
+      method: 'PUT',
+    });
+  },
+
+  async deleteUser(id: string) {
+    await request<{ success?: boolean; message?: string }>(`/users/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
   getRestaurants() {
     return request<RestaurantItem[] | WrappedCollectionResponse<RestaurantItem>>('/restaurants').then((response) =>
       extractCollection(response, 'restaurants').map((item) => normalizeRestaurant(item)),

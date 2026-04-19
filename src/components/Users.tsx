@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, ShieldCheck, UserRound, X } from 'lucide-react';
+import { Plus, ShieldCheck, Trash2, UserRound, UserX, X } from 'lucide-react';
 import { api } from '../lib/api';
 import { filterUsersByAgent, getEffectiveAgentId, getEffectiveAgentName } from '../lib/agentUserLinks';
 import type { AuthUser, PermissionAction, PermissionMap, StaffRole, StaffUser } from '../types';
@@ -65,6 +65,7 @@ export function Users({ isDarkMode = false, currentUser }: UsersProps) {
   const [error, setError] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [actionUserId, setActionUserId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     username: '',
@@ -170,6 +171,58 @@ export function Users({ isDarkMode = false, currentUser }: UsersProps) {
     }
   };
 
+  const handleDisableUser = async (user: StaffUser) => {
+    if (user.status === 'disabled') {
+      setError('المستخدم معطل بالفعل');
+      return;
+    }
+
+    const confirmed = window.confirm(`تأكيد تعطيل المستخدم ${user.name}؟`);
+    if (!confirmed) {
+      return;
+    }
+
+    setActionUserId(user.id);
+    setError('');
+
+    try {
+      await api.disableUser(user.id);
+      setUsers((currentUsers) =>
+        currentUsers.map((currentUser) =>
+          currentUser.id === user.id
+            ? {
+                ...currentUser,
+                status: 'disabled',
+              }
+            : currentUser,
+        ),
+      );
+    } catch (actionError) {
+      setError(actionError instanceof Error ? actionError.message : 'تعذر تعطيل المستخدم');
+    } finally {
+      setActionUserId(null);
+    }
+  };
+
+  const handleDeleteUser = async (user: StaffUser) => {
+    const confirmed = window.confirm(`تأكيد حذف المستخدم ${user.name}؟`);
+    if (!confirmed) {
+      return;
+    }
+
+    setActionUserId(user.id);
+    setError('');
+
+    try {
+      await api.deleteUser(user.id);
+      setUsers((currentUsers) => currentUsers.filter((currentUser) => currentUser.id !== user.id));
+    } catch (actionError) {
+      setError(actionError instanceof Error ? actionError.message : 'تعذر حذف المستخدم');
+    } finally {
+      setActionUserId(null);
+    }
+  };
+
   return (
     <div className={`space-y-6 ${isDarkMode ? 'text-gray-100' : ''}`}>
       <div className="flex items-start justify-between gap-4">
@@ -244,6 +297,28 @@ export function Users({ isDarkMode = false, currentUser }: UsersProps) {
                           </span>
                         ))}
                     </div>
+                  </div>
+
+                  <div className="mt-4 flex items-center gap-2 border-t border-dashed pt-4">
+                    <button
+                      type="button"
+                      onClick={() => void handleDisableUser(user)}
+                      disabled={actionUserId === user.id || user.status === 'disabled'}
+                      className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${user.status === 'disabled' ? 'bg-gray-200 text-gray-600' : 'bg-amber-100 text-amber-800 hover:bg-amber-200'}`}
+                    >
+                      <UserX className="h-4 w-4" />
+                      {actionUserId === user.id ? 'جاري التنفيذ...' : user.status === 'disabled' ? 'معطل' : 'تعطيل'}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => void handleDeleteUser(user)}
+                      disabled={actionUserId === user.id}
+                      className="inline-flex items-center gap-2 rounded-lg bg-red-100 px-3 py-2 text-xs font-medium text-red-700 transition-colors hover:bg-red-200 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      حذف
+                    </button>
                   </div>
                 </div>
               ))}
