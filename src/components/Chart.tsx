@@ -69,8 +69,8 @@ export function Chart({ title, type, data }: ChartProps) {
         <div className="rounded-2xl border border-slate-100 bg-slate-50/40 p-4 sm:p-5">
           <div className="relative h-[340px] sm:h-[380px]">
             <div className="absolute inset-0 flex flex-col justify-between pb-14 pr-10">
-              {topProductsTicks.map((tick) => (
-                <div key={tick} className="relative border-t border-dashed border-slate-300/90">
+              {topProductsTicks.map((tick, index) => (
+                <div key={`top-products-tick-${tick}-${index}`} className="relative border-t border-dashed border-slate-300/90">
                   <span className="absolute -right-10 -top-3 text-xs sm:text-sm text-slate-500">{tick}</span>
                 </div>
               ))}
@@ -81,7 +81,7 @@ export function Chart({ title, type, data }: ChartProps) {
                 const barHeight = `${Math.max((item.value / maxValue) * 100, item.value > 0 ? 8 : 0)}%`;
 
                 return (
-                  <div key={index} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-2">
+                  <div key={`top-product-bar-${item.name}-${index}`} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-2">
                     <span className="text-[11px] sm:text-xs font-semibold text-slate-700">{item.value.toLocaleString()}</span>
                     <div className="flex h-full w-full items-end justify-center">
                       <div
@@ -112,28 +112,28 @@ export function Chart({ title, type, data }: ChartProps) {
                 {lineChartTicks.map((tick, index) => {
                   const y = salesChartTopPadding + (index * (salesChartUsableHeight / 4));
                   return (
-                    <g key={tick}>
+                    <g key={`sales-tick-${tick}-${index}`}>
                       <line x1={salesChartLeftPadding} y1={y} x2={salesChartWidth - salesChartRightPadding} y2={y} stroke="#d1d5db" strokeDasharray="6 6" />
                       <text x={salesChartLeftPadding - 14} y={y + 6} textAnchor="end" fontSize="14" fill="#6b7280">{tick.toLocaleString()}</text>
                     </g>
                   );
                 })}
 
-                {lineChartPoints.map((point) => (
-                  <line key={`${point.name}-grid`} x1={point.x} y1={salesChartTopPadding} x2={point.x} y2={salesChartBottomAxisY} stroke="#d1d5db" strokeDasharray="6 6" />
+                {lineChartPoints.map((point, index) => (
+                  <line key={`${point.name}-grid-${index}`} x1={point.x} y1={salesChartTopPadding} x2={point.x} y2={salesChartBottomAxisY} stroke="#d1d5db" strokeDasharray="6 6" />
                 ))}
 
                 <line x1={salesChartLeftPadding} y1={salesChartBottomAxisY} x2={salesChartWidth - salesChartRightPadding} y2={salesChartBottomAxisY} stroke="#6b7280" strokeWidth="1.5" />
                 <path d={linePath} fill="none" stroke="#10b981" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
 
-                {lineChartPoints.map((point) => (
-                  <g key={`${point.name}-point`}>
+                {lineChartPoints.map((point, index) => (
+                  <g key={`${point.name}-point-${index}`}>
                     <circle cx={point.x} cy={point.y} r="8" fill="#ffffff" stroke="#10b981" strokeWidth="5" />
                   </g>
                 ))}
 
-                {lineChartPoints.map((point) => (
-                  <text key={`${point.name}-label`} x={point.x} y={salesChartBottomLabelY} textAnchor="middle" fontSize="14" fill="#4b5563">{point.name}</text>
+                {lineChartPoints.map((point, index) => (
+                  <text key={`${point.name}-label-${index}`} x={point.x} y={salesChartBottomLabelY} textAnchor="middle" fontSize="14" fill="#4b5563">{point.name}</text>
                 ))}
               </svg>
             </div>
@@ -153,7 +153,7 @@ export function Chart({ title, type, data }: ChartProps) {
               const colors = ['#ffa500', '#10B981', '#F59E0B'];
               
               return (
-                <div key={index} className="mb-2 sm:mb-3">
+                <div key={`legend-item-${item.name}-${index}`} className="mb-2 sm:mb-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center">
                       <div

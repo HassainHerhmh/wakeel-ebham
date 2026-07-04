@@ -23,6 +23,7 @@ export interface OrderRestaurant {
 
 export interface Order {
   id: string;
+  orderNumber?: string;
   customer: string;
   phone: string;
   address: string;

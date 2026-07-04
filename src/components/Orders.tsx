@@ -20,12 +20,23 @@ export function Orders({ restaurantId }: OrdersProps) {
   const [statusModalMessage, setStatusModalMessage] = useState('');
 
   const statusTabs: Array<{ key: OrderStatusTab; label: string }> = [
-    { key: 'pending', label: 'معلقة' },
+    { key: 'pending', label: 'قيد المعالجة' },
     { key: 'processing', label: 'قيد التحضير' },
     { key: 'ready', label: 'جاهز' },
     { key: 'completed', label: 'تم التسليم' },
     { key: 'cancelled', label: 'ملغي' },
   ];
+
+  const getOrderNumber = (order: Order) => order.orderNumber || order.id;
+  const getOrderIdentifier = (order: Order) => order.id;
+  const getOrderItemsText = (order: Order) => {
+    const itemNames = (order.restaurants || [])
+      .flatMap((restaurant) => restaurant.items)
+      .map((item) => item.name)
+      .filter(Boolean);
+
+    return itemNames.length > 0 ? itemNames.join('، ') : 'لا توجد منتجات';
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -41,7 +52,7 @@ export function Orders({ restaurantId }: OrdersProps) {
       const detailResults = await Promise.allSettled(
         ordersMissingCaptain.map(async (order) => ({
           id: order.id,
-          captainName: (await api.getOrderDetails(order.id)).captainName || null,
+          captainName: (await api.getOrderDetails(getOrderIdentifier(order))).captainName || null,
         })),
       );
 
@@ -131,7 +142,7 @@ export function Orders({ restaurantId }: OrdersProps) {
           return order;
         }
 
-        const details = await api.getOrderDetails(order.id);
+        const details = await api.getOrderDetails(getOrderIdentifier(order));
         return {
           ...order,
           captainName: details.captainName || null,
@@ -147,9 +158,9 @@ export function Orders({ restaurantId }: OrdersProps) {
   const matchesStatusTab = (order: Order, tab: OrderStatusTab) => {
     switch (tab) {
       case 'pending':
-        return order.status === 'confirmed' || order.status === 'processing';
+        return order.status === 'confirmed';
       case 'processing':
-        return order.status === 'preparing';
+        return order.status === 'processing' || order.status === 'preparing';
       case 'ready':
         return order.status === 'ready';
       case 'completed':
@@ -163,11 +174,9 @@ export function Orders({ restaurantId }: OrdersProps) {
 
   const getStatusColor = (status: Order['status']) => {
     switch (status) {
-      case 'pending':
-      case 'scheduled':
       case 'confirmed':
+        return 'bg-blue-100 text-blue-800';
       case 'processing':
-        return 'bg-yellow-100 text-yellow-800';
       case 'preparing':
         return 'bg-purple-100 text-purple-800';
       case 'ready':
@@ -184,11 +193,9 @@ export function Orders({ restaurantId }: OrdersProps) {
 
   const getStatusText = (status: Order['status']) => {
     switch (status) {
-      case 'pending':
-      case 'scheduled':
       case 'confirmed':
+        return 'قيد المعالجة';
       case 'processing':
-        return 'معلقة';
       case 'preparing':
         return 'قيد التحضير';
       case 'ready':
@@ -219,13 +226,10 @@ export function Orders({ restaurantId }: OrdersProps) {
   };
 
   const filteredOrders = orders.filter((order) => {
-    if (['pending', 'scheduled'].includes(order.status)) {
-      return false;
-    }
-
     const searchValue = searchTerm.toLowerCase();
     const matchesSearch =
       order.id.includes(searchTerm) ||
+      (order.orderNumber || '').includes(searchTerm) ||
       (order.restaurants || []).some((restaurant) =>
         restaurant.name.toLowerCase().includes(searchValue) ||
         restaurant.items.some((item) => item.name.toLowerCase().includes(searchValue)),
@@ -263,7 +267,7 @@ export function Orders({ restaurantId }: OrdersProps) {
       return;
     }
 
-    const updatedOrder = await api.updateOrderStatus(order.id, newStatus);
+    const updatedOrder = await api.updateOrderStatus(getOrderIdentifier(order), newStatus);
     await handleOrderUpdated(updatedOrder, false);
   };
 
@@ -300,7 +304,7 @@ export function Orders({ restaurantId }: OrdersProps) {
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6">
         <div className="flex flex-col gap-4 mb-6">
           <div className="overflow-x-auto pb-1">
-            <div className="flex gap-2 min-w-max">
+            <div className="flex w-max gap-2">
               {statusTabs.map((tab) => {
                 const isActive = statusFilter === tab.key;
 
@@ -309,7 +313,7 @@ export function Orders({ restaurantId }: OrdersProps) {
                     key={tab.key}
                     type="button"
                     onClick={() => setStatusFilter(tab.key)}
-                    className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+                    className={`rounded-full px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors sm:px-4 ${
                       isActive
                         ? 'bg-green-500 text-white'
                         : 'bg-green-50 text-green-700 hover:bg-green-100'
@@ -339,13 +343,13 @@ export function Orders({ restaurantId }: OrdersProps) {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredOrders.map((order) => (
-              <div key={order.id} className="bg-white rounded-lg p-4 border border-gray-200 hover:shadow-md transition-all duration-200">
-                <div className="mb-3 flex items-start justify-between gap-3">
+              <div key={order.id} className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-all duration-200">
+                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <div className="text-xs text-gray-500 mb-1">رقم الطلب</div>
-                    <div className="font-bold text-gray-900 text-lg">#{order.id}</div>
+                    <div className="font-bold text-gray-900 text-lg">#{getOrderNumber(order)}</div>
                   </div>
-                  <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(order.status)}`}>
+                  <span className={`inline-flex w-fit items-center gap-1 rounded-full px-3 py-1 text-sm font-medium ${getStatusColor(order.status)}`}>
                     {getStatusIcon(order.status)}
                     {getStatusText(order.status)}
                   </span>
@@ -356,13 +360,11 @@ export function Orders({ restaurantId }: OrdersProps) {
                   <div className="font-bold text-green-600 text-lg">{formatYemeniCurrency(order.total)}</div>
                 </div>
 
-                <div className="mb-4 grid grid-cols-2 gap-3 text-sm">
+                <div className="mb-4 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
                   <div>
                     <div className="text-xs text-gray-500 mb-1">المنتجات</div>
-                    <div className="text-gray-700 line-clamp-2">
-                      {order.restaurants && order.restaurants.length > 0
-                        ? order.restaurants.flatMap((restaurant) => restaurant.items).map((item) => item.name).join('، ')
-                        : 'لا توجد منتجات'}
+                    <div className="text-gray-700 break-words leading-6">
+                      {getOrderItemsText(order)}
                     </div>
                   </div>
                   <div>
@@ -384,12 +386,13 @@ export function Orders({ restaurantId }: OrdersProps) {
                   </div>
                 </div>
 
-                <div className="mb-4 rounded-lg bg-gray-50 px-3 py-2 text-sm">
+                <div className="mb-4 rounded-lg bg-gray-50 px-3 py-3 text-sm">
                   <div className="text-xs text-gray-500 mb-1">اسم الكابتن</div>
                   <div className="font-medium text-gray-800">{order.captainName || 'لم يتم التعيين بعد'}</div>
                 </div>
 
                 <button
+                  type="button"
                   onClick={() => setSelectedOrder(order)}
                   className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm font-medium"
                 >

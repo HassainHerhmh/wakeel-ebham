@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#22C55E</color>
+    <color name="colorPrimaryDark">#EAF7EE</color>
+    <color name="colorAccent">#22C55E</color>
+    <color name="appSurface">#EAF7EE</color>
+    <color name="appNavigationSurface">#FFFFFF</color>
+    <color name="appSurfaceDark">#111827</color>
+</resources>

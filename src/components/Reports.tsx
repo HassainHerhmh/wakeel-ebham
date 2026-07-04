@@ -32,6 +32,9 @@ const arabicFontRegularUrl = '/fonts/NotoNaskhArabic-Regular.ttf';
 const arabicFontBoldUrl = '/fonts/NotoNaskhArabic-Bold.ttf';
 const pdfFontBinaryCache = new Map<string, Promise<string>>();
 
+/** بعد أول تحميل يُطبَّق الخط بدون await حتى لا يُلغى تنزيل الملف على الجوال */
+let arabicPdfFontBinaries: { regular: string; bold: string } | null = null;
+
 function containsArabicCharacters(value: string) {
   return /[\u0600-\u06FF]/.test(value);
 }
@@ -65,9 +68,25 @@ async function loadBinaryString(url: string) {
   return fontPromise;
 }
 
-async function ensureArabicPdfFont(doc: jsPDF) {
-  const regularFontBinary = await loadBinaryString(arabicFontRegularUrl);
-  const boldFontBinary = await loadBinaryString(arabicFontBoldUrl);
+async function warmupArabicPdfFonts(): Promise<void> {
+  if (arabicPdfFontBinaries) {
+    return;
+  }
+
+  const [regular, bold] = await Promise.all([
+    loadBinaryString(arabicFontRegularUrl),
+    loadBinaryString(arabicFontBoldUrl),
+  ]);
+
+  arabicPdfFontBinaries = { regular, bold };
+}
+
+function applyArabicPdfFont(doc: jsPDF): void {
+  if (!arabicPdfFontBinaries) {
+    throw new Error('خط التصدير لم يُحمَّل بعد. انتظر قليلاً ثم أعد المحاولة.');
+  }
+
+  const { regular: regularFontBinary, bold: boldFontBinary } = arabicPdfFontBinaries;
 
   if (!doc.existsFileInVFS(PDF_ARABIC_FONT_REGULAR_FILE)) {
     doc.addFileToVFS(PDF_ARABIC_FONT_REGULAR_FILE, regularFontBinary);
@@ -80,7 +99,72 @@ async function ensureArabicPdfFont(doc: jsPDF) {
   doc.addFont(PDF_ARABIC_FONT_REGULAR_FILE, PDF_ARABIC_FONT, 'normal');
   doc.addFont(PDF_ARABIC_FONT_BOLD_FILE, PDF_ARABIC_FONT, 'bold');
   doc.setFont(PDF_ARABIC_FONT, 'normal');
+  /* true يتعارض أحياناً مع processArabic فيصل النص معكوساً؛ autotable + R2L يفسد المحاذاة يمين/وسط */
   doc.setR2L(false);
+}
+
+function triggerPdfBlobDownload(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.style.display = 'none';
+  document.body.appendChild(anchor);
+  anchor.click();
+  window.setTimeout(() => {
+    document.body.removeChild(anchor);
+    URL.revokeObjectURL(url);
+  }, 2000);
+}
+
+type SaveFilePickerOptions = {
+  suggestedName?: string;
+  types?: Array<{ description: string; accept: Record<string, string[]> }>;
+};
+
+type WindowWithSavePicker = Window &
+  typeof globalThis & {
+    showSaveFilePicker?: (options: SaveFilePickerOptions) => Promise<FileSystemFileHandle>;
+  };
+
+function isAbortError(value: unknown): boolean {
+  return Boolean(
+    value && typeof value === 'object' && 'name' in value && (value as { name?: string }).name === 'AbortError',
+  );
+}
+
+/**
+ * حفظ PDF: على Chrome/Edge (سطح المكتب) يظهر مربع اختيار المسار أولاً إن وُجدت واجهة الحفظ؛
+ * وإلا تنزيل مباشر عبر الرابط (بدون ورقة مشاركة).
+ */
+function savePdfDocument(doc: jsPDF, filename: string): void {
+  const blob = doc.output('blob');
+  const safeName = filename.toLowerCase().endsWith('.pdf') ? filename : `${filename}.pdf`;
+
+  const win = typeof window !== 'undefined' ? (window as WindowWithSavePicker) : undefined;
+  const pickSave = win?.showSaveFilePicker;
+
+  if (typeof pickSave === 'function') {
+    void pickSave
+      .call(win, {
+        suggestedName: safeName,
+        types: [{ description: 'PDF', accept: { 'application/pdf': ['.pdf'] } }],
+      })
+      .then(async (handle) => {
+        const writable = await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+      })
+      .catch((err: unknown) => {
+        if (isAbortError(err)) {
+          return;
+        }
+        triggerPdfBlobDownload(blob, safeName);
+      });
+    return;
+  }
+
+  triggerPdfBlobDownload(blob, safeName);
 }
 
 function toPdfText(doc: jsPDF, value: string | number) {
@@ -446,6 +530,19 @@ function createOpeningBalanceEntry(balance: number, fromDate?: string): AccountS
   };
 }
 
+function formatArabicDate(value?: string) {
+  if (!value) {
+    return '-';
+  }
+
+  const parsedDate = new Date(value);
+  if (Number.isNaN(parsedDate.getTime())) {
+    return value;
+  }
+
+  return parsedDate.toLocaleDateString('ar-SA');
+}
+
 function buildStatementEntries(
   statementData: AccountStatementResponse,
   activeDateRange: { from?: string; to?: string },
@@ -498,6 +595,7 @@ export function Reports({ restaurant, user }: ReportsProps) {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [pdfFontsReady, setPdfFontsReady] = useState(false);
   const pendingDateRange = useMemo(
     () => getDateRangeForPeriod(selectedPeriod, dateRange),
     [dateRange, selectedPeriod],
@@ -552,6 +650,28 @@ export function Reports({ restaurant, user }: ReportsProps) {
     setAppliedDateRange(dateRange);
     setReloadKey((value) => value + 1);
   };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    warmupArabicPdfFonts()
+      .then(() => {
+        if (!cancelled) {
+          setPdfFontsReady(true);
+        }
+      })
+      .catch((warmupError) => {
+        if (!cancelled) {
+          setError(
+            warmupError instanceof Error ? warmupError.message : 'تعذر تحميل خط التصدير',
+          );
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -659,9 +779,9 @@ const response = await api.getAccountStatement({
     };
   }, [statementData.openingBalance, statementEntries]);
 
-  const exportSummaryToPDF = async () => {
+  const exportSummaryToPDF = () => {
     const doc = new jsPDF();
-    await ensureArabicPdfFont(doc);
+    applyArabicPdfFont(doc);
     const rightEdge = doc.internal.pageSize.getWidth() - 20;
 
     doc.setFont(PDF_ARABIC_FONT, 'bold');
@@ -712,18 +832,20 @@ const response = await api.getAccountStatement({
       ]],
       body: tableData,
       startY: 120,
+      /* halign right/center يكسر العربية في autotable (يستخدم getStringUnitWidth بدل doc.text الافتراضي) */
       styles: {
         font: PDF_ARABIC_FONT,
         fontSize: 10,
         cellPadding: 5,
-        halign: 'right',
+        halign: 'left',
+        valign: 'top',
       },
       headStyles: {
         fillColor: [59, 130, 246],
         textColor: 255,
         fontStyle: 'bold',
         font: PDF_ARABIC_FONT,
-        halign: 'right',
+        halign: 'left',
       },
       alternateRowStyles: {
         fillColor: [248, 250, 252],
@@ -731,69 +853,190 @@ const response = await api.getAccountStatement({
       margin: { top: 120, right: 20, bottom: 20, left: 20 },
     });
 
-    doc.save(`تقرير_المبيعات_${periodLabels[appliedPeriod]}_${new Date().toISOString().split('T')[0]}.pdf`);
+    savePdfDocument(
+      doc,
+      `تقرير_المبيعات_${periodLabels[appliedPeriod]}_${new Date().toISOString().split('T')[0]}.pdf`,
+    );
   };
 
-  const exportStatementToPDF = async () => {
-    const doc = new jsPDF();
-    await ensureArabicPdfFont(doc);
-    const rightEdge = doc.internal.pageSize.getWidth() - 20;
+  const exportStatementToPDF = () => {
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4',
+    });
+    applyArabicPdfFont(doc);
+
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const rightEdge = pageWidth - 20;
+    let y = 18;
 
     doc.setFont(PDF_ARABIC_FONT, 'bold');
     doc.setFontSize(16);
-    doc.text(toPdfText(doc, 'كشف حساب مفصل'), 105, 20, { align: 'center' });
+    doc.text(toPdfText(doc, 'كشف حساب مفصل'), pageWidth / 2, y, { align: 'center' });
+    y += 10;
 
-    const reportDate = new Date().toLocaleDateString('ar-SA');
     doc.setFont(PDF_ARABIC_FONT, 'normal');
-    doc.setFontSize(12);
-    doc.text(toPdfText(doc, `تاريخ التقرير: ${reportDate}`), rightEdge, 35, { align: 'right' });
+    doc.setFontSize(11);
+    doc.text(toPdfText(doc, `تاريخ التقرير: ${new Date().toLocaleDateString('ar-SA')}`), rightEdge, y, { align: 'right' });
+    y += 7;
 
-    const tableData = statementEntries.map((entry) => [
-      entry.journalDate,
-      entry.referenceId || '-',
-      toPdfText(doc, getStatementDisplayText(entry)),
-      entry.debit > 0 ? toPdfText(doc, formatYemeniCurrency(entry.debit)) : '-',
-      entry.credit > 0 ? toPdfText(doc, formatYemeniCurrency(entry.credit)) : '-',
-      toPdfText(doc, formatStatementBalance(entry.balance)),
-      toPdfText(doc, getBalanceStatus(entry.balance).label),
-    ]);
+    const periodLabel = getPeriodHeadingLabel(appliedPeriod);
+    const fromLabel = activeDateRange.from ? formatArabicDate(activeDateRange.from) : '-';
+    const toLabel = activeDateRange.to ? formatArabicDate(activeDateRange.to) : '-';
+    doc.text(toPdfText(doc, `الفترة (${periodLabel}): من ${fromLabel} إلى ${toLabel}`), rightEdge, y, { align: 'right' });
+    y += 7;
+
+    if (restaurant?.name) {
+      doc.text(toPdfText(doc, `المطعم: ${restaurant.name}`), rightEdge, y, { align: 'right' });
+      y += 7;
+    }
+
+    doc.setFont(PDF_ARABIC_FONT, 'bold');
+    doc.text(
+      toPdfText(doc, `إجمالي له (دائن): ${formatYemeniCurrency(statementTotals.credit, 0)}`),
+      rightEdge,
+      y,
+      { align: 'right' },
+    );
+    y += 6;
+    doc.text(
+      toPdfText(doc, `إجمالي عليه (مدين): ${formatYemeniCurrency(statementTotals.debit, 0)}`),
+      rightEdge,
+      y,
+      { align: 'right' },
+    );
+    y += 6;
+    const finalStatus = getBalanceStatus(statementTotals.finalBalance);
+    doc.text(
+      toPdfText(
+        doc,
+        `الرصيد الحالي: ${formatStatementBalance(statementTotals.finalBalance, 0)} (${finalStatus.label})`,
+      ),
+      rightEdge,
+      y,
+      { align: 'right' },
+    );
+    y += 8;
+
+    if (statementEntries.length === 0) {
+      doc.setFont(PDF_ARABIC_FONT, 'normal');
+      doc.text(toPdfText(doc, 'لا توجد قيود في كشف الحساب للفترة المحددة'), rightEdge, y, { align: 'right' });
+      savePdfDocument(doc, `كشف_حساب_${new Date().toISOString().split('T')[0]}.pdf`);
+      return;
+    }
+
+    const tableData = statementEntries.map((entry) => {
+      const status = getBalanceStatus(entry.balance);
+      return [
+        toPdfText(doc, formatArabicDate(entry.journalDate)),
+        toPdfText(doc, entry.referenceId || '-'),
+        toPdfText(doc, getStatementDisplayText(entry)),
+        toPdfText(doc, entry.debit > 0 ? formatYemeniCurrency(entry.debit, 0) : '-'),
+        toPdfText(doc, entry.credit > 0 ? formatYemeniCurrency(entry.credit, 0) : '-'),
+        toPdfText(doc, formatStatementBalance(entry.balance, 0)),
+        toPdfText(doc, status.label),
+      ];
+    });
+
+    const footStatus = getBalanceStatus(statementTotals.finalBalance);
+    const footRow = [
+      {
+        content: toPdfText(doc, 'الرصيد النهائي'),
+        colSpan: 5,
+        styles: { halign: 'left' as const, fontStyle: 'bold' as const, fillColor: [236, 253, 245] },
+      },
+      {
+        content: toPdfText(doc, formatStatementBalance(statementTotals.finalBalance, 0)),
+        styles: { halign: 'left' as const, fontStyle: 'bold' as const, fillColor: [236, 253, 245] },
+      },
+      {
+        content: toPdfText(
+          doc,
+          `${formatStatementBalance(statementTotals.finalBalance, 0)} ${footStatus.label}`,
+        ),
+        styles: { halign: 'left' as const, fontStyle: 'bold' as const, fillColor: [236, 253, 245] },
+      },
+    ];
 
     autoTable(doc, {
       head: [[
         toPdfText(doc, 'التاريخ'),
         toPdfText(doc, 'المرجع'),
         toPdfText(doc, 'البيان'),
-        toPdfText(doc, 'مدين'),
-        toPdfText(doc, 'دائن'),
+        toPdfText(doc, 'عليه (مدين)'),
+        toPdfText(doc, 'له (دائن)'),
         toPdfText(doc, 'الرصيد'),
         toPdfText(doc, 'الحالة'),
       ]],
       body: tableData,
-      startY: 50,
+      foot: [footRow],
+      showFoot: 'lastPage',
+      startY: y,
       styles: {
         font: PDF_ARABIC_FONT,
-        fontSize: 10,
-        cellPadding: 5,
-        halign: 'right',
+        fontSize: 8,
+        cellPadding: 3,
+        halign: 'left',
+        valign: 'top',
+      },
+      columnStyles: {
+        0: { cellWidth: 22, halign: 'left' },
+        1: { cellWidth: 18, halign: 'left' },
+        2: { cellWidth: 52, halign: 'left' },
+        3: { cellWidth: 24, halign: 'left' },
+        4: { cellWidth: 24, halign: 'left' },
+        5: { cellWidth: 26, halign: 'left' },
+        6: { cellWidth: 16, halign: 'left' },
       },
       headStyles: {
-        fillColor: [255, 165, 0],
+        fillColor: [22, 163, 74],
         textColor: 255,
         fontStyle: 'bold',
         font: PDF_ARABIC_FONT,
-        halign: 'right',
+        halign: 'left',
+      },
+      footStyles: {
+        font: PDF_ARABIC_FONT,
+        textColor: [17, 24, 39],
+        lineWidth: 0.1,
+        halign: 'left',
       },
       alternateRowStyles: {
         fillColor: [248, 250, 252],
       },
-      margin: { top: 50, right: 20, bottom: 20, left: 20 },
+      didParseCell: (data) => {
+        if (data.section === 'body' && statementEntries[data.row.index]?.debit > 0) {
+          data.cell.styles.fillColor = [254, 242, 242];
+        }
+      },
+      margin: { top: 14, right: 14, bottom: 16, left: 14 },
     });
 
-    doc.save(`كشف_حساب_${new Date().toISOString().split('T')[0]}.pdf`);
+    savePdfDocument(doc, `كشف_حساب_${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
+  const handleExportPdfClick = () => {
+    if (!pdfFontsReady) {
+      setError('جاري تهيئة التصدير، انتظر قليلاً ثم اضغط مرة أخرى');
+      return;
+    }
+
+    setError('');
+
+    try {
+      if (reportView === 'summary') {
+        exportSummaryToPDF();
+      } else {
+        exportStatementToPDF();
+      }
+    } catch (exportErr) {
+      setError(exportErr instanceof Error ? exportErr.message : 'تعذر إنشاء ملف PDF');
+    }
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" dir="rtl">
       <div>
         <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-1">التقارير والإحصائيات</h2>
         <p className="text-sm text-gray-600">عرض بيانات التقارير وكشف الحساب بشكل مباشر</p>
@@ -890,12 +1133,13 @@ const response = await api.getAccountStatement({
         )}
 
         <button
-          onClick={reportView === 'summary' ? exportSummaryToPDF : exportStatementToPDF}
+          type="button"
+          onClick={handleExportPdfClick}
           className="mt-3 flex items-center justify-center gap-2 bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 transition-colors text-xs sm:text-sm w-full disabled:opacity-50 disabled:cursor-not-allowed"
-          disabled={isLoading}
+          disabled={isLoading || !pdfFontsReady}
         >
           <Download className="h-3 w-3 sm:h-4 sm:w-4" />
-          تصدير PDF
+          {pdfFontsReady ? 'تصدير PDF' : 'جاري تهيئة التصدير...'}
         </button>
       </div>
 
@@ -994,7 +1238,7 @@ const response = await api.getAccountStatement({
             </div>
 
             <div className="hidden sm:block overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full" dir="rtl">
                 <thead>
                   <tr className="border-b border-gray-200">
                     <th className="text-right py-2 px-2 font-semibold text-gray-700 text-xs">الفترة</th>
@@ -1056,22 +1300,22 @@ const response = await api.getAccountStatement({
             {statementEntries.map((entry) => (
               <div key={entry.id} className={`border rounded-lg p-3 ${entry.debit > 0 ? 'bg-red-50 border-red-200' : 'border-gray-200'}`}>
                 <div className="flex items-start justify-between mb-2 pb-2 border-b border-gray-200">
-                  <div className="text-sm text-gray-600">{entry.journalDate ? new Date(entry.journalDate).toLocaleDateString('ar-SA') : '-'}</div>
-                  {entry.referenceId && <div className="text-sm font-medium text-gray-900">#{entry.referenceId}</div>}
+                  <div className="text-sm text-gray-600" dir="ltr">{formatArabicDate(entry.journalDate)}</div>
+                  {entry.referenceId && <div className="text-sm font-medium text-gray-900" dir="ltr">#{entry.referenceId}</div>}
                 </div>
-                <div className="text-sm text-gray-700 mb-2">{getStatementDisplayText(entry)}</div>
+                <div className="text-sm text-gray-700 mb-2 text-right">{getStatementDisplayText(entry)}</div>
                 <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
-                  <div>
-                    <div className="text-gray-500">مدين</div>
-                    <div className="font-medium text-red-600">{entry.debit > 0 ? formatYemeniCurrency(entry.debit, 0) : '-'}</div>
+                  <div className="rounded-lg bg-red-50 px-3 py-2">
+                    <div className="text-gray-500">عليه (مدين)</div>
+                    <div className="font-medium text-red-600" dir="ltr">{entry.debit > 0 ? formatYemeniCurrency(entry.debit, 0) : '-'}</div>
                   </div>
-                  <div>
-                    <div className="text-gray-500">دائن</div>
-                    <div className="font-medium text-green-600">{entry.credit > 0 ? formatYemeniCurrency(entry.credit, 0) : '-'}</div>
+                  <div className="rounded-lg bg-green-50 px-3 py-2">
+                    <div className="text-gray-500">له (دائن)</div>
+                    <div className="font-medium text-green-600" dir="ltr">{entry.credit > 0 ? formatYemeniCurrency(entry.credit, 0) : '-'}</div>
                   </div>
                   <div>
                     <div className="text-gray-500">الرصيد</div>
-                    <div className="font-bold text-gray-900">{formatStatementBalance(entry.balance, 0)}</div>
+                    <div className="font-bold text-gray-900" dir="ltr">{formatStatementBalance(entry.balance, 0)}</div>
                   </div>
                   <div>
                     <div className="text-gray-500">الحالة</div>
@@ -1094,21 +1338,21 @@ const response = await api.getAccountStatement({
                 <span className="text-base text-gray-900">الرصيد النهائي</span>
                 <span className="text-lg text-green-600">{formatStatementBalance(statementTotals.finalBalance, 0)}</span>
               </div>
-              <div className={`mt-2 inline-flex rounded-full px-2 py-1 text-sm ${getBalanceStatus(statementTotals.finalBalance).badge}`}>
-                {getBalanceStatus(statementTotals.finalBalance).label}
+              <div className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-sm ${getBalanceStatus(statementTotals.finalBalance).badge}`}>
+                {formatStatementBalance(statementTotals.finalBalance, 0)} {getBalanceStatus(statementTotals.finalBalance).label}
               </div>
             </div>
           </div>
 
           <div className="hidden sm:block overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full" dir="rtl">
               <thead>
                 <tr className="border-b border-gray-200">
                   <th className="text-right py-3 px-2 font-semibold text-gray-700 text-sm">التاريخ</th>
                   <th className="text-right py-3 px-2 font-semibold text-gray-700 text-sm">المرجع</th>
                   <th className="text-right py-3 px-2 font-semibold text-gray-700 text-sm">البيان</th>
-                  <th className="text-right py-3 px-2 font-semibold text-gray-700 text-sm">مدين</th>
-                  <th className="text-right py-3 px-2 font-semibold text-gray-700 text-sm">دائن</th>
+                  <th className="text-right py-3 px-2 font-semibold text-gray-700 text-sm">عليه (مدين)</th>
+                  <th className="text-right py-3 px-2 font-semibold text-gray-700 text-sm">له (دائن)</th>
                   <th className="text-right py-3 px-2 font-semibold text-gray-700 text-sm">الرصيد</th>
                   <th className="text-right py-3 px-2 font-semibold text-gray-700 text-sm">الحالة</th>
                 </tr>
@@ -1116,17 +1360,17 @@ const response = await api.getAccountStatement({
               <tbody>
                 {statementEntries.map((entry) => (
                   <tr key={entry.id} className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${entry.debit > 0 ? 'bg-red-50/40' : ''}`}>
-                    <td className="py-3 px-2 text-sm text-gray-900">{entry.journalDate ? new Date(entry.journalDate).toLocaleDateString('ar-SA') : '-'}</td>
-                    <td className="py-3 px-2 text-sm text-gray-900 font-medium">{entry.referenceId || '-'}</td>
+                    <td className="py-3 px-2 text-sm text-gray-900" dir="ltr">{formatArabicDate(entry.journalDate)}</td>
+                    <td className="py-3 px-2 text-sm text-gray-900 font-medium" dir="ltr">{entry.referenceId || '-'}</td>
                     <td className="py-3 px-2 text-sm text-gray-700">
-                      <div className="flex items-start gap-1">
+                      <div className="flex items-start gap-1 text-right">
                         {entry.debit > 0 && <span className="w-1.5 h-1.5 bg-red-500 rounded-full mt-1 flex-shrink-0"></span>}
                         <span className="line-clamp-2">{getStatementDisplayText(entry)}</span>
                       </div>
                     </td>
-                    <td className="py-3 px-2 text-sm">{entry.debit > 0 ? <span className="text-red-600 font-medium">{formatYemeniCurrency(entry.debit, 0)}</span> : <span className="text-gray-400">-</span>}</td>
-                    <td className="py-3 px-2 text-sm">{entry.credit > 0 ? <span className="text-green-600 font-medium">{formatYemeniCurrency(entry.credit, 0)}</span> : <span className="text-gray-400">-</span>}</td>
-                    <td className="py-3 px-2 text-sm font-bold text-gray-900">{formatStatementBalance(entry.balance, 0)}</td>
+                    <td className="py-3 px-2 text-sm" dir="ltr">{entry.debit > 0 ? <span className="text-red-600 font-medium">{formatYemeniCurrency(entry.debit, 0)}</span> : <span className="text-gray-400">-</span>}</td>
+                    <td className="py-3 px-2 text-sm" dir="ltr">{entry.credit > 0 ? <span className="text-green-600 font-medium">{formatYemeniCurrency(entry.credit, 0)}</span> : <span className="text-gray-400">-</span>}</td>
+                    <td className="py-3 px-2 text-sm font-bold text-gray-900" dir="ltr">{formatStatementBalance(entry.balance, 0)}</td>
                     <td className="py-3 px-2 text-sm">
                       <span className={`inline-flex rounded-full px-2.5 py-1 font-medium ${getBalanceStatus(entry.balance).badge}`}>
                         {getBalanceStatus(entry.balance).label}
@@ -1147,7 +1391,7 @@ const response = await api.getAccountStatement({
                   <td className="py-3 px-2 font-bold text-green-600 text-base">{formatStatementBalance(statementTotals.finalBalance, 0)}</td>
                   <td className="py-3 px-2 text-sm">
                     <span className={`inline-flex rounded-full px-2.5 py-1 font-bold ${getBalanceStatus(statementTotals.finalBalance).badge}`}>
-                      {getBalanceStatus(statementTotals.finalBalance).label}
+                      {formatStatementBalance(statementTotals.finalBalance, 0)} {getBalanceStatus(statementTotals.finalBalance).label}
                     </span>
                   </td>
                 </tr>
@@ -1157,11 +1401,11 @@ const response = await api.getAccountStatement({
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 mt-4 pt-4 border-t border-gray-200">
             <div className="bg-green-50 rounded-lg p-3">
-              <div className="text-sm text-green-700 font-medium">إجمالي الدائن</div>
+              <div className="text-sm text-green-700 font-medium">إجمالي له (دائن)</div>
               <div className="text-base sm:text-lg font-bold text-green-800 mt-1">{formatYemeniCurrency(statementTotals.credit, 0)}</div>
             </div>
             <div className="bg-red-50 rounded-lg p-3">
-              <div className="text-sm text-red-700 font-medium">إجمالي المدين</div>
+              <div className="text-sm text-red-700 font-medium">إجمالي عليه (مدين)</div>
               <div className="text-base sm:text-lg font-bold text-red-800 mt-1">{formatYemeniCurrency(statementTotals.debit, 0)}</div>
             </div>
             <div className="bg-green-50 rounded-lg p-3">

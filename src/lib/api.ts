@@ -299,6 +299,11 @@ function normalizeOrder(order: Record<string, unknown>): Order {
 
   return {
     id: String(order.id || ''),
+    orderNumber: order.order_number !== undefined && order.order_number !== null
+      ? String(order.order_number)
+      : order.orderNumber !== undefined && order.orderNumber !== null
+        ? String(order.orderNumber)
+        : undefined,
     customer: String(order.customer_name || order.customer || ''),
     phone: String(order.customer_phone || order.phone || ''),
     address: String(order.customer_address || order.address || ''),
@@ -346,6 +351,11 @@ function normalizeManualOrder(order: Record<string, unknown>): Order {
 
   return {
     id: String(order.id || ''),
+    orderNumber: order.order_number !== undefined && order.order_number !== null
+      ? String(order.order_number)
+      : order.orderNumber !== undefined && order.orderNumber !== null
+        ? String(order.orderNumber)
+        : undefined,
     customer: String(order.customer_name || order.customer || ''),
     phone: String(order.customer_phone || order.phone || ''),
     address: String(order.to_address || order.customer_address || order.address || ''),
@@ -640,7 +650,7 @@ function buildDashboardFromOrders(orders: Order[]): DashboardData {
     .reduce((sum, order) => sum + toSafeNumber(order.total), 0);
 
   const pendingOrders = sortedOrders.filter((order) =>
-    ['pending', 'scheduled', 'processing', 'preparing', 'confirmed', 'ready'].includes(order.status),
+    ['processing', 'preparing', 'confirmed', 'ready'].includes(order.status),
   ).length;
 
   const latestWeek = sortedOrders.slice(0, 7);
@@ -916,45 +926,45 @@ export const api = {
     });
   },
 
-  getOrderDetails(id: string) {
-    return request<{ success?: boolean; order?: Order }>(`/orders/${id}`).then((response) =>
+  getOrderDetails(orderNumber: string) {
+    return request<{ success?: boolean; order?: Order }>(`/orders/${orderNumber}`).then((response) =>
       normalizeOrder((response.order || {}) as unknown as Record<string, unknown>),
     );
   },
 
-  async updateOrderStatus(id: string, status: Order['status']) {
-    await request<{ success: boolean }>(`/orders/${id}/status`, {
+  async updateOrderStatus(orderNumber: string, status: Order['status']) {
+    await request<{ success: boolean }>(`/orders/${orderNumber}/status`, {
       method: 'PUT',
       body: JSON.stringify({ status }),
     });
 
-    return api.getOrderDetails(id);
+    return api.getOrderDetails(orderNumber);
   },
 
-  async cancelOrder(id: string, reason: string) {
-    await request<{ success: boolean }>(`/orders/${id}/cancel`, {
+  async cancelOrder(orderNumber: string, reason: string) {
+    await request<{ success: boolean }>(`/orders/${orderNumber}/cancel`, {
       method: 'PUT',
       body: JSON.stringify({ reason }),
     });
 
-    return api.getOrderDetails(id);
+    return api.getOrderDetails(orderNumber);
   },
 
-  async updateOrderItem(itemId: string, quantity: number, orderId: string) {
+  async updateOrderItem(itemId: string, quantity: number, orderNumber: string) {
     await request<{ success: boolean }>(`/orders/item/${itemId}`, {
       method: 'PUT',
       body: JSON.stringify({ quantity }),
     });
 
-    return api.getOrderDetails(orderId);
+    return api.getOrderDetails(orderNumber);
   },
 
-  async deleteOrderItem(itemId: string, orderId: string) {
+  async deleteOrderItem(itemId: string, orderNumber: string) {
     await request<{ success: boolean }>(`/orders/item/${itemId}`, {
       method: 'DELETE',
     });
 
-    return api.getOrderDetails(orderId);
+    return api.getOrderDetails(orderNumber);
   },
 
   getProducts() {

@@ -19,13 +19,15 @@ export function OrderModal({ order, onClose, onUpdateOrder }: OrderModalProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingDetails, setIsLoadingDetails] = useState(true);
   const [error, setError] = useState('');
+  const getOrderNumber = (targetOrder: Order) => targetOrder.orderNumber || targetOrder.id;
+  const getOrderIdentifier = (targetOrder: Order) => targetOrder.id;
 
   useEffect(() => {
     let mounted = true;
 
     const loadOrderDetails = async () => {
       try {
-        const details = await api.getOrderDetails(order.id);
+        const details = await api.getOrderDetails(getOrderIdentifier(order));
         if (!mounted) {
           return;
         }
@@ -48,15 +50,13 @@ export function OrderModal({ order, onClose, onUpdateOrder }: OrderModalProps) {
     return () => {
       mounted = false;
     };
-  }, [order.id]);
+  }, [order.id, order.orderNumber]);
 
   const getStatusText = (status: Order['status']) => {
     switch (status) {
-      case 'pending':
-      case 'scheduled':
       case 'confirmed':
+        return 'قيد المعالجة';
       case 'processing':
-        return 'معلقة';
       case 'preparing':
         return 'قيد التحضير';
       case 'ready':
@@ -73,11 +73,9 @@ export function OrderModal({ order, onClose, onUpdateOrder }: OrderModalProps) {
 
   const getStatusColor = (status: Order['status']) => {
     switch (status) {
-      case 'pending':
-      case 'scheduled':
       case 'confirmed':
+        return 'bg-blue-100 text-blue-800';
       case 'processing':
-        return 'bg-yellow-100 text-yellow-800';
       case 'preparing':
         return 'bg-purple-100 text-purple-800';
       case 'ready':
@@ -124,7 +122,7 @@ export function OrderModal({ order, onClose, onUpdateOrder }: OrderModalProps) {
       return;
     }
 
-    const updatedOrder = await api.updateOrderStatus(currentOrder.id, newStatus);
+    const updatedOrder = await api.updateOrderStatus(getOrderIdentifier(currentOrder), newStatus);
     await commitOrder(updatedOrder, true);
   };
 
@@ -137,7 +135,7 @@ export function OrderModal({ order, onClose, onUpdateOrder }: OrderModalProps) {
       return;
     }
 
-    const updatedOrder = await api.cancelOrder(currentOrder.id, cancelReason);
+    const updatedOrder = await api.cancelOrder(getOrderIdentifier(currentOrder), cancelReason);
     await commitOrder(updatedOrder, true);
     setShowCancelModal(false);
     setSelectedCancelReason('');
@@ -171,12 +169,12 @@ export function OrderModal({ order, onClose, onUpdateOrder }: OrderModalProps) {
         const editedItem = editingItems.find((candidate) => candidate.id === item.id);
 
         if (!editedItem && item.id) {
-          latestOrder = await api.deleteOrderItem(item.id, currentOrder.id);
+          latestOrder = await api.deleteOrderItem(item.id, getOrderIdentifier(currentOrder));
           continue;
         }
 
         if (editedItem && item.id && editedItem.quantity !== item.quantity) {
-          latestOrder = await api.updateOrderItem(item.id, editedItem.quantity, currentOrder.id);
+          latestOrder = await api.updateOrderItem(item.id, editedItem.quantity, getOrderIdentifier(currentOrder));
         }
       }
 
@@ -216,13 +214,18 @@ export function OrderModal({ order, onClose, onUpdateOrder }: OrderModalProps) {
     items.reduce((sum, item) => sum + getItemSubtotal(item, useLiveQuantity), 0);
 
   const formatYemeniCurrency = (value: number) => `${value.toFixed(2)} ريال يمني`;
-
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
-      <div className="bg-white rounded-xl max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-2 sm:p-4"
+      style={{ touchAction: 'pan-x pan-y pinch-zoom' }}
+    >
+      <div
+        className="w-full max-w-4xl max-h-[95vh] overflow-auto rounded-xl bg-white sm:max-h-[90vh]"
+        style={{ touchAction: 'pan-x pan-y pinch-zoom' }}
+      >
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div>
-            <h3 className="text-lg sm:text-xl font-bold text-gray-900">تفاصيل الطلب #{currentOrder.id}</h3>
+            <h3 className="text-lg sm:text-xl font-bold text-gray-900">تفاصيل الطلب #{getOrderNumber(currentOrder)}</h3>
             <p className="mt-1 text-sm text-gray-500">
               {new Date(currentOrder.createdAt).toLocaleDateString('en-GB')} - {new Date(currentOrder.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
             </p>
@@ -383,6 +386,15 @@ export function OrderModal({ order, onClose, onUpdateOrder }: OrderModalProps) {
                         </tr>
                       </tbody>
                     </table>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-sm sm:text-base font-semibold text-gray-900 mb-4">ملاحظات الطلب</h4>
+                <div className="rounded-lg bg-gray-50 px-4 py-3">
+                  <div className="text-sm font-medium text-gray-900 break-words">
+                    {currentOrder.note || 'لا توجد ملاحظات'}
                   </div>
                 </div>
               </div>

@@ -2,6 +2,47 @@
 @tailwind components;
 @tailwind utilities;
 
+html,
+body,
+#root {
+	width: 100%;
+	max-width: 100%;
+	overflow-x: hidden;
+}
+
+@media (pointer: coarse) {
+	html,
+	body,
+	#root,
+	button,
+	a,
+	div,
+	span,
+	p,
+	h1,
+	h2,
+	h3,
+	h4,
+	h5,
+	h6,
+	li,
+	label {
+		-webkit-user-select: none;
+		user-select: none;
+		-webkit-touch-callout: none;
+	}
+
+	input,
+	textarea,
+	select,
+	[contenteditable="true"],
+	.allow-text-selection {
+		-webkit-user-select: text;
+		user-select: text;
+		-webkit-touch-callout: default;
+	}
+}
+
 .dark-theme {
 	color-scheme: dark;
 }

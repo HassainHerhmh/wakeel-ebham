@@ -54,9 +54,10 @@ export function Sidebar({
       
       {/* Sidebar */}
       <div className={`
-        fixed lg:static inset-y-0 right-0 z-50 w-[82vw] max-w-xs sm:w-72 ${isCollapsed ? 'lg:w-24' : 'lg:w-64'} bg-white border-r border-gray-200 h-screen
-        transform transition-transform duration-300 ease-in-out lg:transform-none
-        ${isOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'}
+        fixed inset-y-0 right-0 z-50 h-screen w-[82vw] max-w-xs bg-white border-r border-gray-200 transition-all duration-300 ease-in-out sm:w-72
+        ${isCollapsed ? 'lg:w-24' : 'lg:w-64'}
+        lg:static lg:translate-x-0 lg:opacity-100 lg:pointer-events-auto
+        ${isOpen ? 'translate-x-0 opacity-100 pointer-events-auto' : 'translate-x-[110%] opacity-0 pointer-events-none lg:opacity-100'}
       `}>
         {/* Mobile close button */}
         <div className="lg:hidden flex justify-between items-center p-3 sm:p-4 border-b border-gray-200">

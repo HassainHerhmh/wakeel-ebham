@@ -4,14 +4,15 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --host",
+    "dev": "vite --config vite.config.mjs --host",
     "server": "node server/server.js",
     "dev:all": "concurrently \"npm run server\" \"npm run dev\"",
-    "build": "vite build",
+    "build": "vite build --config vite.config.mjs",
     "lint": "eslint .",
-    "preview": "vite preview",
+    "preview": "vite preview --config vite.config.mjs",
     "android:add": "npx cap add android",
     "android:sync": "npx cap sync android",
+    "android:sync:live": "powershell -Command \"$env:CAP_SERVER_URL='http://localhost:8080'; npx cap sync android\"",
     "android:open": "npx cap open android"
   },
   "dependencies": {

@@ -13,14 +13,14 @@ interface DashboardProps {
 
 function normalizeOrderDistributionLabel(label: string) {
   switch (label) {
-    case 'pending':
-    case 'scheduled':
     case 'confirmed':
+    case 'قيد المعالجة':
+      return 'قيد المعالجة';
     case 'processing':
     case 'قيد الانتظار':
     case 'مجدول':
     case 'تم التأكيد':
-      return 'معلقة';
+      return 'قيد التحضير';
     case 'preparing':
     case 'قيد التحضير':
       return 'قيد التحضير';

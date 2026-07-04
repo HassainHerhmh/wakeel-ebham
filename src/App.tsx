@@ -90,6 +90,10 @@ function createNotificationId(kind: 'new' | 'delay', source: 'normal' | 'manual'
   return `${kind}:${source}:${orderId}`;
 }
 
+function getOrderDisplayNumber(order: Order) {
+  return order.orderNumber || order.id;
+}
+
 export default function App() {
   const [authState, setAuthState] = useState<'loading' | 'authenticated' | 'guest'>('loading');
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -350,7 +354,7 @@ export default function App() {
             orderSource: source,
             restaurantId: buildOrderRestaurantId(order),
             title: 'تنبيه تأخير الطلب',
-            message: `الطلب #${order.id} ما يزال في حالة ${order.status === 'ready' ? 'جاهز' : 'معلق'} لأكثر من 10 دقائق`,
+            message: `الطلب #${getOrderDisplayNumber(order)} ما يزال في حالة ${order.status === 'ready' ? 'جاهز' : 'معلق'} لأكثر من 10 دقائق`,
             createdAt: new Date().toISOString(),
             isRead: false,
           });
@@ -377,7 +381,7 @@ export default function App() {
                   orderSource: source,
                   restaurantId: buildOrderRestaurantId(order),
                   title: 'لديك طلب معلق',
-                  message: `لديك طلب معلق رقم #${order.id}`,
+                  message: `لديك طلب معلق رقم #${getOrderDisplayNumber(order)}`,
                   createdAt: new Date().toISOString(),
                   isRead: false,
                 });
@@ -433,6 +437,10 @@ export default function App() {
           : item,
       ),
     );
+  };
+
+  const dismissToastNotification = (notificationId: string) => {
+    setToastNotifications((current) => current.filter((item) => item.id !== notificationId));
   };
 
   const handleLogin = async (phone: string, password: string): Promise<string | null> => {
@@ -519,14 +527,19 @@ export default function App() {
   }
 
   return (
-    <div className={`min-h-screen flex ${isDarkMode ? 'dark-theme bg-gray-900' : 'bg-gray-50'}`} dir="rtl">
+    <div className={`min-h-screen w-full overflow-x-hidden flex ${isDarkMode ? 'dark-theme bg-gray-900' : 'bg-gray-50'}`} dir="rtl">
       {toastNotifications.length > 0 && (
         <div className="fixed top-20 left-4 z-[60] space-y-2 w-[calc(100%-2rem)] max-w-sm">
           {toastNotifications.map((notification) => (
-            <div key={notification.id} className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 shadow-lg">
+            <button
+              key={notification.id}
+              type="button"
+              onClick={() => dismissToastNotification(notification.id)}
+              className="block w-full rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-right shadow-lg transition-colors hover:bg-amber-100"
+            >
               <p className="text-sm font-semibold text-amber-900">{notification.title}</p>
               <p className="text-xs text-amber-800 mt-1">{notification.message}</p>
-            </div>
+            </button>
           ))}
         </div>
       )}
@@ -541,7 +554,7 @@ export default function App() {
         restaurantName={currentRestaurant?.name || 'المطعم'}
         restaurantImageUrl={currentRestaurant?.image_url || null}
       />
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 min-w-0 w-full overflow-x-hidden flex flex-col">
         <Header
           onMenuClick={() => setSidebarOpen(true)}
           onLogout={handleLogout}
@@ -554,7 +567,7 @@ export default function App() {
           onMarkAllNotificationsRead={markAllNotificationsAsRead}
           onOpenOrdersPage={() => setCurrentPage('orders')}
         />
-        <main className="flex-1 p-3 sm:p-4 lg:p-6 overflow-x-hidden">
+        <main className="flex-1 min-w-0 overflow-x-hidden p-3 sm:p-4 lg:p-6">
           {renderCurrentPage()}
         </main>
       </div>
